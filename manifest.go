@@ -19,7 +19,7 @@ type ManifestRuns struct {
 	Steps []Step `yaml:"steps"`
 }
 
-// ParseManifest parses a GitHub Actions Action manifest into a Manifest struct.
+// ParseManifest parses a GitHub Actions Action manifest into a [Manifest] struct.
 func ParseManifest(data []byte) (Manifest, error) {
 	var manifest Manifest
 	if err := yaml.Unmarshal(data, &manifest); err != nil {

@@ -4,18 +4,20 @@ package gha
 
 import (
 	"testing"
+	"testing/quick"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestWorkflow(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		type TestCase struct {
-			yaml string
-			want Workflow
-		}
+	type TestCase struct {
+		yaml string
+		want Workflow
+	}
 
-		testCases := map[string]TestCase{
-			"Workflow with 'run:'": {
-				yaml: `
+	okCases := map[string]TestCase{
+		"Workflow with 'run:'": {
+			yaml: `
 jobs:
   example:
     name: Example
@@ -27,26 +29,32 @@ jobs:
     - name: Echo value
       run: echo '${{ inputs.value }}'
 `,
-				want: Workflow{
-					Jobs: map[string]Job{
-						"example": {
-							Name: "Example",
-							Steps: []Step{
-								{
-									Name: "Checkout repository",
-									Uses: "actions/checkout@v3",
+			want: Workflow{
+				Jobs: map[string]Job{
+					"example": {
+						Name: "Example",
+						Steps: []Step{
+							{
+								Name: "Checkout repository",
+								Uses: Uses{
+									Name: "actions/checkout",
+									Ref:  "v3",
 								},
-								{
-									Name: "Echo value",
-									Run:  "echo '${{ inputs.value }}'",
+								With: map[string]string{
+									"fetch-depth": "1",
 								},
+							},
+							{
+								Name: "Echo value",
+								Run:  "echo '${{ inputs.value }}'",
 							},
 						},
 					},
 				},
 			},
-			"Workflow with 'actions/github-script'": {
-				yaml: `
+		},
+		"Workflow with 'actions/github-script'": {
+			yaml: `
 jobs:
   example:
     name: Example
@@ -60,29 +68,38 @@ jobs:
       with:
         script: console.log('${{ inputs.value }}')
 `,
-				want: Workflow{
-					Jobs: map[string]Job{
-						"example": {
-							Name: "Example",
-							Steps: []Step{
-								{
-									Name: "Checkout repository",
-									Uses: "actions/checkout@v3",
+			want: Workflow{
+				Jobs: map[string]Job{
+					"example": {
+						Name: "Example",
+						Steps: []Step{
+							{
+								Name: "Checkout repository",
+								Uses: Uses{
+									Name: "actions/checkout",
+									Ref:  "v3",
 								},
-								{
-									Name: "Echo value",
-									Uses: "actions/github-script@v6",
-									With: map[string]string{
-										"script": "console.log('${{ inputs.value }}')",
-									},
+								With: map[string]string{
+									"fetch-depth": "1",
+								},
+							},
+							{
+								Name: "Echo value",
+								Uses: Uses{
+									Name: "actions/github-script",
+									Ref:  "v6",
+								},
+								With: map[string]string{
+									"script": "console.log('${{ inputs.value }}')",
 								},
 							},
 						},
 					},
 				},
 			},
-			"No names": {
-				yaml: `
+		},
+		"No names": {
+			yaml: `
 jobs:
   example:
     steps:
@@ -91,111 +108,176 @@ jobs:
         node-version: 20
     - run: echo ${{ inputs.value }}
 `,
-				want: Workflow{
-					Jobs: map[string]Job{
-						"example": {
-							Name: "",
-							Steps: []Step{
-								{
-									Uses: "actions/setup-node@v3",
+			want: Workflow{
+				Jobs: map[string]Job{
+					"example": {
+						Name: "",
+						Steps: []Step{
+							{
+								Uses: Uses{
+									Name: "actions/setup-node",
+									Ref:  "v3",
 								},
-								{
-									Run: "echo ${{ inputs.value }}",
+								With: map[string]string{
+									"node-version": "20",
 								},
+							},
+							{
+								Run: "echo ${{ inputs.value }}",
 							},
 						},
 					},
 				},
 			},
-			"Version annotation": {
-				yaml: `
+		},
+		"Version annotation": {
+			yaml: `
 jobs:
   example:
     steps:
     - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 `,
-				want: Workflow{
-					Jobs: map[string]Job{
-						"example": {
-							Name: "",
-							Steps: []Step{
-								{
-									Uses:           "actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b",
-									UsesAnnotation: "v4",
+			want: Workflow{
+				Jobs: map[string]Job{
+					"example": {
+						Name: "",
+						Steps: []Step{
+							{
+								Uses: Uses{
+									Name:       "actions/checkout",
+									Ref:        "0ad4b8fadaa221de15dcec353f45205ec38ea70b",
+									Annotation: "v4",
 								},
 							},
 						},
 					},
 				},
 			},
-		}
+		},
+	}
 
-		for name, tt := range testCases {
-			t.Run(name, func(t *testing.T) {
-				t.Parallel()
+	for name, tt := range okCases {
+		t.Run(name, func(t *testing.T) {
+			got, err := ParseWorkflow([]byte(tt.yaml))
+			if err != nil {
+				t.Fatalf("Want no error, got %#v", err)
+			}
 
-				workflow, err := ParseWorkflow([]byte(tt.yaml))
-				if err != nil {
-					t.Fatalf("Unexpected error: %#v", err)
-				}
+			checkWorkflow(t, &got, &tt.want)
+		})
+	}
 
-				if got, want := len(workflow.Jobs), len(tt.want.Jobs); got != want {
-					t.Fatalf("Unexpected number of jobs (got %d, want %d)", got, want)
-				}
-
-				for name, job := range workflow.Jobs {
-					want := tt.want.Jobs[name]
-					CheckJob(t, name, job, want)
-				}
-			})
-		}
-	})
-
-	t.Run("Error", func(t *testing.T) {
-		type TestCase struct {
-			yaml string
-		}
-
-		testCases := map[string]TestCase{
-			"Invalid 'jobs' value": {
-				yaml: `
+	errCases := map[string]TestCase{
+		"Invalid 'jobs' value": {
+			yaml: `
 jobs: 3.14
 `,
-			},
-			"Invalid 'steps' value": {
-				yaml: `
+		},
+		"Invalid 'steps' value": {
+			yaml: `
 jobs:
   example:
     steps: 42
 `,
-			},
-			"Invalid 'env' value": {
-				yaml: `
+		},
+		"Invalid 'env' value": {
+			yaml: `
 jobs:
   example:
     steps:
     - env: 1.618
 `,
-			},
-			"Invalid 'with' value": {
-				yaml: `
+		},
+		"Invalid 'with' value": {
+			yaml: `
 jobs:
   example:
     steps:
     - with: 1.618
 `,
-			},
+		},
+		"Invalid 'uses' value, no ref": {
+			yaml: `
+jobs:
+  example:
+    steps:
+    - uses: foobar
+`,
+		},
+		"Invalid 'uses' value, empty ref": {
+			yaml: `
+jobs:
+  example:
+    steps:
+    - uses: foobar@
+`,
+		},
+		"Invalid 'uses' value, empty name": {
+			yaml: `
+jobs:
+  example:
+    steps:
+    - uses: @v1.2.3
+`,
+		},
+	}
+
+	for name, tt := range errCases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := ParseWorkflow([]byte(tt.yaml)); err == nil {
+				t.Fatal("Want an error, got none")
+			}
+		})
+	}
+
+	roundtrip := func(w Workflow) bool {
+		b, err := yaml.Marshal(w)
+		if err != nil {
+			return true
 		}
 
-		for name, tt := range testCases {
-			t.Run(name, func(t *testing.T) {
-				t.Parallel()
-
-				_, err := ParseWorkflow([]byte(tt.yaml))
-				if err == nil {
-					t.Fatal("Expected an error, got none")
-				}
-			})
+		if err := yaml.Unmarshal(b, &w); err != nil {
+			return false
 		}
-	})
+
+		return true
+	}
+
+	if err := quick.Check(roundtrip, nil); err != nil {
+		t.Error(err)
+	}
+}
+
+func checkWorkflow(t *testing.T, got, want *Workflow) {
+	t.Helper()
+
+	if got, want := got.Jobs, want.Jobs; len(got) != len(want) {
+		t.Errorf("Unexpected number of jobs (got %d, want %d)", len(got), len(want))
+	} else {
+		for name := range want {
+			if _, ok := got[name]; !ok {
+				t.Errorf("Want job named %q but it is not present", name)
+			}
+		}
+
+		for name, got := range got {
+			if want, ok := want[name]; !ok {
+				t.Errorf("Got job named %q but it is not wanted", name)
+			} else {
+				checkJob(t, name, &got, &want)
+			}
+		}
+	}
+}
+
+func checkJob(t *testing.T, id string, got, want *Job) {
+	t.Helper()
+
+	if got, want := got.Name, want.Name; got != want {
+		t.Errorf("Unexpected name for job %q (got %q, want %q)", id, got, want)
+	} else if got != "" {
+		id = got
+	}
+
+	checkSteps(t, id, got.Steps, want.Steps)
 }

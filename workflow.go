@@ -13,7 +13,13 @@ type Workflow struct {
 	Jobs map[string]Job `yaml:"jobs"`
 }
 
-// ParseWorkflow parses a GitHub Actions workflow into a Workflow struct.
+// Job is a model of a workflow job.
+type Job struct {
+	Name  string `yaml:"name"`
+	Steps []Step `yaml:"steps"`
+}
+
+// ParseWorkflow parses a GitHub Actions workflow into a [Workflow] struct.
 func ParseWorkflow(data []byte) (Workflow, error) {
 	var workflow Workflow
 	if err := yaml.Unmarshal(data, &workflow); err != nil {
