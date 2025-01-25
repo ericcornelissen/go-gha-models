@@ -35,7 +35,12 @@ func TestUses(t *testing.T) {
 			return true
 		}
 
-		if _, err := yaml.Marshal(u); err != nil {
+		b, err := yaml.Marshal(u)
+		if err != nil {
+			return false
+		}
+
+		if err = yaml.Unmarshal(b, &u); err != nil {
 			return false
 		}
 
