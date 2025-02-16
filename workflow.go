@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause-Patent
+// SPDX-License-Identifier: BSD-2-Clause
 
 package gha
 
