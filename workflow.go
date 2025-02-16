@@ -19,7 +19,7 @@ type Job struct {
 	Steps []Step `yaml:"steps"`
 }
 
-// ParseWorkflow parses a GitHub Actions workflow into a [Workflow] struct.
+// ParseWorkflow parses a GitHub Actions workflow into a [Workflow].
 func ParseWorkflow(data []byte) (Workflow, error) {
 	var workflow Workflow
 	if err := yaml.Unmarshal(data, &workflow); err != nil {

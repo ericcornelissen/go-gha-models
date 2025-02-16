@@ -23,7 +23,7 @@ runs:
   main: index.js
 `,
 			want: Manifest{
-				Runs: ManifestRuns{
+				Runs: Runs{
 					Using: "node16",
 				},
 			},
@@ -41,7 +41,7 @@ runs:
     run: echo '${{ inputs.value }}'
 `,
 			want: Manifest{
-				Runs: ManifestRuns{
+				Runs: Runs{
 					Using: "composite",
 					Steps: []Step{
 						{
@@ -77,7 +77,7 @@ runs:
       script: console.log('${{ inputs.value }}')
 `,
 			want: Manifest{
-				Runs: ManifestRuns{
+				Runs: Runs{
 					Using: "composite",
 					Steps: []Step{
 						{
@@ -127,6 +127,27 @@ runs:
   steps: 3.14
 `,
 		},
+		"Invalid 'env' value": {
+			yaml: `
+runs:
+  steps:
+  - env: 1.618
+`,
+		},
+		"Invalid 'uses' value": {
+			yaml: `
+runs:
+  steps:
+  - uses: foobar
+`,
+		},
+		"Invalid 'with' value": {
+			yaml: `
+runs:
+  steps:
+  - with: 1.618
+`,
+		},
 	}
 
 	for name, tt := range errCases {
@@ -155,13 +176,42 @@ runs:
 	}
 }
 
+func FuzzParseManifest(f *testing.F) {
+	seeds := []string{
+		`
+runs:
+  using: node16
+  main: index.js
+`,
+		`
+runs:
+  using: composite
+  steps:
+  - name: Checkout repository
+    uses: actions/checkout@v3
+    with:
+      fetch-depth: 1
+  - name: Echo value
+    run: echo '${{ inputs.value }}'
+`,
+	}
+
+	for _, seed := range seeds {
+		f.Add([]byte(seed))
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		ParseManifest(data)
+	})
+}
+
 func checkManifest(t *testing.T, got, want *Manifest) {
 	t.Helper()
 
 	checkRuns(t, &got.Runs, &want.Runs)
 }
 
-func checkRuns(t *testing.T, got, want *ManifestRuns) {
+func checkRuns(t *testing.T, got, want *Runs) {
 	t.Helper()
 
 	if got, want := len(got.Using), len(want.Using); got != want {
@@ -172,5 +222,8 @@ func checkRuns(t *testing.T, got, want *ManifestRuns) {
 		t.Errorf("Unexpected number of steps (got %d, want %d)", got, want)
 	}
 
-	checkSteps(t, "runs", got.Steps, want.Steps)
+	for i, got := range got.Steps {
+		want := want.Steps[i]
+		checkStep(t, &got, &want)
+	}
 }

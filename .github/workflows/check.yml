@@ -15,10 +15,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - what: Test
-          how: go test
         - what: Format
           how: test -z "$(gofmt -l .)"
+        - what: Fuzz (manifest)
+          how: go test -fuzztime 60s -fuzz FuzzParseManifest
+        - what: Fuzz (workflow)
+          how: go test -fuzztime 60s -fuzz FuzzParseWorkflow
+        - what: Test
+          how: go test
         - what: Vet
           how: go vet
     steps:

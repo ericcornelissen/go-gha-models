@@ -10,16 +10,16 @@ import (
 
 // Manifest is a model of a GitHub Actions Action manifest.
 type Manifest struct {
-	Runs ManifestRuns `yaml:"runs"`
+	Runs Runs `yaml:"runs"`
 }
 
-// ManifestRuns is a model of an Action manifest's `runs:` object.
-type ManifestRuns struct {
+// Runs is a model of an Action manifest's `runs:` object.
+type Runs struct {
 	Using string `yaml:"using"`
 	Steps []Step `yaml:"steps"`
 }
 
-// ParseManifest parses a GitHub Actions Action manifest into a [Manifest] struct.
+// ParseManifest parses a GitHub Actions Action manifest into a [Manifest].
 func ParseManifest(data []byte) (Manifest, error) {
 	var manifest Manifest
 	if err := yaml.Unmarshal(data, &manifest); err != nil {

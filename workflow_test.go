@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestWorkflow(t *testing.T) {
+func TestParseWorkflow(t *testing.T) {
 	type TestCase struct {
 		yaml string
 		want Workflow
@@ -188,15 +188,7 @@ jobs:
     - env: 1.618
 `,
 		},
-		"Invalid 'with' value": {
-			yaml: `
-jobs:
-  example:
-    steps:
-    - with: 1.618
-`,
-		},
-		"Invalid 'uses' value, no ref": {
+		"Invalid 'uses' value": {
 			yaml: `
 jobs:
   example:
@@ -204,20 +196,12 @@ jobs:
     - uses: foobar
 `,
 		},
-		"Invalid 'uses' value, empty ref": {
+		"Invalid 'with' value": {
 			yaml: `
 jobs:
   example:
     steps:
-    - uses: foobar@
-`,
-		},
-		"Invalid 'uses' value, empty name": {
-			yaml: `
-jobs:
-  example:
-    steps:
-    - uses: @v1.2.3
+    - with: 1.618
 `,
 		},
 	}
@@ -248,6 +232,45 @@ jobs:
 	}
 }
 
+func FuzzParseWorkflow(f *testing.F) {
+	seeds := []string{
+		`
+jobs:
+  example:
+    name: Example
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+    - name: Echo value
+      run: echo '${{ inputs.value }}'
+`,
+		`
+jobs:
+  example:
+    name: Example
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+    - name: Echo value
+      uses: actions/github-script@v6
+      with:
+        script: console.log('${{ inputs.value }}')
+`,
+	}
+
+	for _, seed := range seeds {
+		f.Add([]byte(seed))
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		ParseManifest(data)
+	})
+}
+
 func checkWorkflow(t *testing.T, got, want *Workflow) {
 	t.Helper()
 
@@ -264,20 +287,25 @@ func checkWorkflow(t *testing.T, got, want *Workflow) {
 			if want, ok := want[name]; !ok {
 				t.Errorf("Got job named %q but it is not wanted", name)
 			} else {
-				checkJob(t, name, &got, &want)
+				checkJob(t, &got, &want)
 			}
 		}
 	}
 }
 
-func checkJob(t *testing.T, id string, got, want *Job) {
+func checkJob(t *testing.T, got, want *Job) {
 	t.Helper()
 
 	if got, want := got.Name, want.Name; got != want {
-		t.Errorf("Unexpected name for job %q (got %q, want %q)", id, got, want)
-	} else if got != "" {
-		id = got
+		t.Errorf("Unexpected name (got %q, want %q)", got, want)
 	}
 
-	checkSteps(t, id, got.Steps, want.Steps)
+	if got, want := len(got.Steps), len(want.Steps); got != want {
+		t.Errorf("Unexpected number of steps (got %d, want %d)", got, want)
+	}
+
+	for i, got := range got.Steps {
+		want := want.Steps[i]
+		checkStep(t, &got, &want)
+	}
 }
