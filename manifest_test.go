@@ -253,7 +253,7 @@ runs:
 runs:
   using: composite
   steps:
-  - uses: foobar
+  - uses: ['foo', 'bar']
 `,
 		},
 		"Invalid 'with' value in step": {

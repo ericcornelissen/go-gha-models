@@ -4,6 +4,7 @@ package gha
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -32,17 +33,26 @@ type Uses struct {
 }
 
 func (u *Uses) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind != yaml.ScalarNode {
+		return fmt.Errorf("cannot unmarshal %s into a gha.Uses struct", n.Tag)
+	}
+
 	if n.Value == "" {
 		return nil
 	}
 
 	i := strings.LastIndex(n.Value, "@")
-	if i <= 0 || i >= len(n.Value)-1 {
-		return errors.New("invalid `uses` value")
+	if i == 0 || i == len(n.Value)-1 {
+		return fmt.Errorf("invalid `uses` value (%q)", n.Value)
 	}
 
-	u.Name = n.Value[:i]
-	u.Ref = n.Value[i+1:]
+	if i > 0 {
+		u.Name = n.Value[:i]
+		u.Ref = n.Value[i+1:]
+	} else {
+		u.Name = n.Value
+	}
+
 	u.Annotation = strings.TrimLeft(n.LineComment, "# ")
 
 	return nil
@@ -57,13 +67,9 @@ func (u Uses) MarshalYAML() (interface{}, error) {
 		return nil, errors.New("missing 'name' value")
 	}
 
-	if u.Name != "" && u.Ref == "" {
-		return nil, errors.New("missing 'ref' value")
-	}
-
-	v := u.Name + "@" + u.Ref
-	if u.Annotation != "" {
-		v += " # " + u.Annotation
+	v := u.Name
+	if u.Ref != "" {
+		v = v + "@" + u.Ref
 	}
 
 	return v, nil
