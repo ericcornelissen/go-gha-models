@@ -193,7 +193,7 @@ jobs:
 jobs:
   example:
     steps:
-    - uses: foobar
+    - uses: ['foo', 'bar']
 `,
 		},
 		"Invalid 'with' value": {
