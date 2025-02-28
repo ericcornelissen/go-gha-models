@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -67,10 +68,22 @@ func (u Uses) MarshalYAML() (interface{}, error) {
 		return nil, errors.New("missing 'name' value")
 	}
 
-	v := u.Name
-	if u.Ref != "" {
-		v = v + "@" + u.Ref
+	n := &yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Tag:   "!!str",
+		Value: u.Name,
+		LineComment: strings.Map(func(r rune) rune {
+			if !unicode.IsPrint(r) {
+				return -1
+			}
+
+			return r
+		}, u.Annotation),
 	}
 
-	return v, nil
+	if u.Ref != "" {
+		n.Value = n.Value + "@" + u.Ref
+	}
+
+	return n, nil
 }
