@@ -171,70 +171,72 @@ func TestUses(t *testing.T) {
 		}
 
 		okCases := map[string]TestCase{
-			"Without annotation": {
-				uses: Uses{
-					Name: "foo",
-					Ref:  "bar",
-				},
-				want: `foo@bar`,
-			},
-			"With annotation": {
-				uses: Uses{
-					Name:       "foo",
-					Ref:        "bar",
-					Annotation: "foobaz",
-				},
-				want: `foo@bar`,
-			},
-
-			"With a 'uses:' (versioned action, specific commit)": {
+			"Versioned action, specific commit": {
 				uses: Uses{
 					Name: "actions/checkout",
 					Ref:  "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
 				},
 				want: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3`,
 			},
-			"With a 'uses:' (versioned action, major version)": {
+			"Versioned action, specific commit, with annotation": {
+				uses: Uses{
+					Name:       "actions/checkout",
+					Ref:        "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
+					Annotation: "v4.2.0",
+				},
+				want: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v4.2.0`,
+			},
+			"Versioned action, major version": {
 				uses: Uses{
 					Name: "actions/checkout",
 					Ref:  "v4",
 				},
 				want: `actions/checkout@v4`,
 			},
-			"With a 'uses:' (versioned action, specific version)": {
+			"Versioned action, specific version": {
 				uses: Uses{
 					Name: "actions/checkout",
 					Ref:  "v4.2.0",
 				},
 				want: `actions/checkout@v4.2.0`,
 			},
-			"With a 'uses:' (versioned action, branch)": {
+			"Versioned action, branch": {
 				uses: Uses{
 					Name: "actions/checkout",
 					Ref:  "main",
 				},
 				want: `actions/checkout@main`,
 			},
-			"With a 'uses:' (versioned action in a subdirectory)": {
+			"Versioned action in a subdirectory": {
 				uses: Uses{
 					Name: "actions/aws/ec2",
 					Ref:  "main",
 				},
 				want: `actions/aws/ec2@main`,
 			},
-			"With a 'uses:' (in the same repository as the workflow)": {
+			"In the same repository as the workflow": {
 				uses: Uses{
 					Name: "./.github/actions/hello-world-action",
 				},
 				want: `./.github/actions/hello-world-action`,
 			},
-			"With a 'uses:' (specific commit with annotation)": {
+			"Docker Hub action": {
 				uses: Uses{
-					Name:       "actions/checkout",
-					Ref:        "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
-					Annotation: "v4.2.0",
+					Name: "docker://alpine:3.8",
 				},
-				want: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3`,
+				want: `docker://alpine:3.8`,
+			},
+			"GitHub Packages Container registry action": {
+				uses: Uses{
+					Name: "docker://ghcr.io/foo/bar",
+				},
+				want: `docker://ghcr.io/foo/bar`,
+			},
+			"Docker public registry action": {
+				uses: Uses{
+					Name: "docker://gcr.io/cloud-builders/gradle",
+				},
+				want: `docker://gcr.io/cloud-builders/gradle`,
 			},
 		}
 
@@ -276,69 +278,71 @@ func TestUses(t *testing.T) {
 		}
 
 		okCases := map[string]TestCase{
-			"Without annotation": {
-				yaml: `foo@bar`,
-				want: Uses{
-					Name: "foo",
-					Ref:  "bar",
-				},
-			},
-			"With annotation": {
-				yaml: `foo@bar # foobaz`,
-				want: Uses{
-					Name:       "foo",
-					Ref:        "bar",
-					Annotation: "foobaz",
-				},
-			},
-
-			"With a 'uses:' (versioned action, specific commit)": {
+			"Versioned action, specific commit": {
 				yaml: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3`,
 				want: Uses{
 					Name: "actions/checkout",
 					Ref:  "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
 				},
 			},
-			"With a 'uses:' (versioned action, major version)": {
+			"Versioned action, specific commit, with annotation": {
+				yaml: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v4.2.0`,
+				want: Uses{
+					Name:       "actions/checkout",
+					Ref:        "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
+					Annotation: "v4.2.0",
+				},
+			},
+			"Versioned action, major version": {
 				yaml: `actions/checkout@v4`,
 				want: Uses{
 					Name: "actions/checkout",
 					Ref:  "v4",
 				},
 			},
-			"With a 'uses:' (versioned action, specific version)": {
+			"Versioned action, specific version": {
 				yaml: `actions/checkout@v4.2.0`,
 				want: Uses{
 					Name: "actions/checkout",
 					Ref:  "v4.2.0",
 				},
 			},
-			"With a 'uses:' (versioned action, branch)": {
+			"Versioned action, branch": {
 				yaml: `actions/checkout@main`,
 				want: Uses{
 					Name: "actions/checkout",
 					Ref:  "main",
 				},
 			},
-			"With a 'uses:' (versioned action in a subdirectory)": {
+			"Versioned action in a subdirectory": {
 				yaml: `actions/aws/ec2@main`,
 				want: Uses{
 					Name: "actions/aws/ec2",
 					Ref:  "main",
 				},
 			},
-			"With a 'uses:' (in the same repository as the workflow)": {
+			"In the same repository as the workflow": {
 				yaml: `./.github/actions/hello-world-action`,
 				want: Uses{
 					Name: "./.github/actions/hello-world-action",
 				},
 			},
-			"With a 'uses:' (specific commit with annotation)": {
-				yaml: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v4.2.0`,
+			"Docker Hub action": {
+				yaml: `docker://alpine:3.8`,
 				want: Uses{
-					Name:       "actions/checkout",
-					Ref:        "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
-					Annotation: "v4.2.0",
+					Name: "docker://alpine:3.8",
+				},
+			},
+			"GitHub Packages Container registry action": {
+				yaml: `docker://ghcr.io/foo/bar`,
+				want: Uses{
+					Name: "docker://ghcr.io/foo/bar",
+				},
+			},
+			"Docker public registry action": {
+				yaml: `docker://gcr.io/cloud-builders/gradle`,
+				want: Uses{
+					Name: "docker://gcr.io/cloud-builders/gradle",
 				},
 			},
 		}
