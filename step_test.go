@@ -3,6 +3,7 @@
 package gha
 
 import (
+	"strings"
 	"testing"
 	"testing/quick"
 
@@ -10,392 +11,337 @@ import (
 )
 
 func TestStep(t *testing.T) {
-	t.Run("Unmarshal", func(t *testing.T) {
-		type TestCase struct {
-			yaml string
-			want Step
-		}
+	type TestCase struct {
+		yaml  string
+		model Step
+	}
 
-		okCases := map[string]TestCase{
-			"With a 'name:'": {
-				yaml: `name: foobar`,
-				want: Step{
-					Name: "foobar",
-				},
+	okCases := map[string]TestCase{
+		"With a 'name:'": {
+			yaml: `name: foobar`,
+			model: Step{
+				Name: "foobar",
 			},
-			"With a 'uses:'": {
-				yaml: `uses: foo@bar`,
-				want: Step{
-					Uses: Uses{
-						Name: "foo",
-						Ref:  "bar",
-					},
-				},
-			},
-			"With a 'run:'": {
-				yaml: `run: echo 'foobar'`,
-				want: Step{
-					Run: "echo 'foobar'",
-				},
-			},
-			"With a 'shell:'": {
-				yaml: `shell: bash`,
-				want: Step{
-					Shell: "bash",
-				},
-			},
-			"With a 'with:'": {
-				yaml: `
-with:
-  foo: bar
-`,
-				want: Step{
-					With: map[string]string{
-						"foo": "bar",
-					},
-				},
-			},
-			"With an 'env:'": {
-				yaml: `
-env:
-  foo: bar
-`,
-				want: Step{
-					Env: map[string]string{
-						"foo": "bar",
-					},
-				},
-			},
-			"With a 'name:' and 'uses:'": {
-				yaml: `
-name: foobar
-uses: foo@bar
-`,
-				want: Step{
-					Name: "foobar",
-					Uses: Uses{
-						Name: "foo",
-						Ref:  "bar",
-					},
-				},
-			},
-			"With a 'name:' and 'run:'": {
-				yaml: `
-name: foobar
-run: echo 'foobaz'
-`,
-				want: Step{
-					Name: "foobar",
-					Run:  "echo 'foobaz'",
-				},
-			},
-			"With a 'run:' and 'shell:'": {
-				yaml: `
-shell: powershell
-run: echo 'foobaz'
-`,
-				want: Step{
-					Run:   "echo 'foobaz'",
-					Shell: "powershell",
-				},
-			},
-		}
-
-		for name, tt := range okCases {
-			t.Run(name, func(t *testing.T) {
-				var got Step
-				if err := yaml.Unmarshal([]byte(tt.yaml), &got); err != nil {
-					t.Fatalf("Want no error, got %#v", err)
-				}
-
-				checkStep(t, &got, &tt.want)
-			})
-		}
-
-		errCases := map[string]TestCase{
-			"Invalid 'env' value": {
-				yaml: `
-name: foobar
-env: not a map
-`,
-			},
-			"Invalid 'uses' value": {
-				yaml: `
-name: foo
-uses: ['foo', 'bar']
-`,
-			},
-			"Invalid 'with' value": {
-				yaml: `
-name: foobar
-with: not a map
-`,
-			},
-		}
-
-		for name, tt := range errCases {
-			t.Run(name, func(t *testing.T) {
-				var got Step
-				if err := yaml.Unmarshal([]byte(tt.yaml), &got); err == nil {
-					t.Fatal("Want an error, got none")
-				}
-			})
-		}
-	})
-
-	t.Run("Roundtrip", func(t *testing.T) {
-		f := func(s Step) bool {
-			b, err := yaml.Marshal(s)
-			if err != nil {
-				return true
-			}
-
-			if err = yaml.Unmarshal(b, &s); err != nil {
-				return false
-			}
-
-			return true
-		}
-
-		if err := quick.Check(f, nil); err != nil {
-			t.Error(err)
-		}
-	})
-}
-
-func TestUses(t *testing.T) {
-	t.Run("Marshal", func(t *testing.T) {
-		type TestCase struct {
-			uses Uses
-			want string
-		}
-
-		okCases := map[string]TestCase{
-			"Versioned action, specific commit": {
-				uses: Uses{
-					Name: "actions/checkout",
-					Ref:  "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
-				},
-				want: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3`,
-			},
-			"Versioned action, specific commit, with annotation": {
-				uses: Uses{
-					Name:       "actions/checkout",
-					Ref:        "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
-					Annotation: "v4.2.0",
-				},
-				want: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v4.2.0`,
-			},
-			"Versioned action, major version": {
-				uses: Uses{
-					Name: "actions/checkout",
-					Ref:  "v4",
-				},
-				want: `actions/checkout@v4`,
-			},
-			"Versioned action, specific version": {
-				uses: Uses{
-					Name: "actions/checkout",
-					Ref:  "v4.2.0",
-				},
-				want: `actions/checkout@v4.2.0`,
-			},
-			"Versioned action, branch": {
-				uses: Uses{
-					Name: "actions/checkout",
-					Ref:  "main",
-				},
-				want: `actions/checkout@main`,
-			},
-			"Versioned action in a subdirectory": {
-				uses: Uses{
-					Name: "actions/aws/ec2",
-					Ref:  "main",
-				},
-				want: `actions/aws/ec2@main`,
-			},
-			"In the same repository as the workflow": {
-				uses: Uses{
-					Name: "./.github/actions/hello-world-action",
-				},
-				want: `./.github/actions/hello-world-action`,
-			},
-			"Docker Hub action": {
-				uses: Uses{
-					Name: "docker://alpine:3.8",
-				},
-				want: `docker://alpine:3.8`,
-			},
-			"GitHub Packages Container registry action": {
-				uses: Uses{
-					Name: "docker://ghcr.io/foo/bar",
-				},
-				want: `docker://ghcr.io/foo/bar`,
-			},
-			"Docker public registry action": {
-				uses: Uses{
-					Name: "docker://gcr.io/cloud-builders/gradle",
-				},
-				want: `docker://gcr.io/cloud-builders/gradle`,
-			},
-		}
-
-		for name, tt := range okCases {
-			t.Run(name, func(t *testing.T) {
-				got, err := yaml.Marshal(tt.uses)
-				if err != nil {
-					t.Fatalf("Want no error, got %#v", err)
-				}
-
-				if got, want := string(got), tt.want+"\n"; got != want {
-					t.Errorf("Unexpected result (got %q, want %q)", got, want)
-				}
-			})
-		}
-
-		errCases := map[string]TestCase{
-			"Missing name": {
-				uses: Uses{
-					Name: "",
+		},
+		"With a 'uses:'": {
+			yaml: `uses: foo@bar`,
+			model: Step{
+				Uses: Uses{
+					Name: "foo",
 					Ref:  "bar",
 				},
 			},
-		}
+		},
+		"With a 'run:'": {
+			yaml: `run: echo 'foobar'`,
+			model: Step{
+				Run: "echo 'foobar'",
+			},
+		},
+		"With a 'shell:'": {
+			yaml: `shell: bash`,
+			model: Step{
+				Shell: "bash",
+			},
+		},
+		"With a 'with:'": {
+			yaml: `
+with:
+    foo: bar
+`,
+			model: Step{
+				With: map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+		"With an 'env:'": {
+			yaml: `
+env:
+    foo: bar
+`,
+			model: Step{
+				Env: map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+		"With a 'name:' and 'uses:'": {
+			yaml: `
+name: foobar
+uses: foo@bar
+`,
+			model: Step{
+				Name: "foobar",
+				Uses: Uses{
+					Name: "foo",
+					Ref:  "bar",
+				},
+			},
+		},
+		"With a 'name:' and 'run:'": {
+			yaml: `
+name: foobar
+run: echo 'foobaz'
+`,
+			model: Step{
+				Name: "foobar",
+				Run:  "echo 'foobaz'",
+			},
+		},
+		"With a 'run:' and 'shell:'": {
+			yaml: `
+run: echo 'foobaz'
+shell: powershell
+`,
+			model: Step{
+				Run:   "echo 'foobaz'",
+				Shell: "powershell",
+			},
+		},
+	}
 
-		for name, tt := range errCases {
-			t.Run(name, func(t *testing.T) {
-				if _, err := yaml.Marshal(tt.uses); err == nil {
-					t.Fatal("Want an error, got none")
-				}
-			})
-		}
-	})
-
-	t.Run("Unmarshal", func(t *testing.T) {
-		type TestCase struct {
-			yaml string
-			want Uses
-		}
-
-		okCases := map[string]TestCase{
-			"Versioned action, specific commit": {
-				yaml: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3`,
-				want: Uses{
-					Name: "actions/checkout",
-					Ref:  "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
-				},
-			},
-			"Versioned action, specific commit, with annotation": {
-				yaml: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v4.2.0`,
-				want: Uses{
-					Name:       "actions/checkout",
-					Ref:        "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
-					Annotation: "v4.2.0",
-				},
-			},
-			"Versioned action, major version": {
-				yaml: `actions/checkout@v4`,
-				want: Uses{
-					Name: "actions/checkout",
-					Ref:  "v4",
-				},
-			},
-			"Versioned action, specific version": {
-				yaml: `actions/checkout@v4.2.0`,
-				want: Uses{
-					Name: "actions/checkout",
-					Ref:  "v4.2.0",
-				},
-			},
-			"Versioned action, branch": {
-				yaml: `actions/checkout@main`,
-				want: Uses{
-					Name: "actions/checkout",
-					Ref:  "main",
-				},
-			},
-			"Versioned action in a subdirectory": {
-				yaml: `actions/aws/ec2@main`,
-				want: Uses{
-					Name: "actions/aws/ec2",
-					Ref:  "main",
-				},
-			},
-			"In the same repository as the workflow": {
-				yaml: `./.github/actions/hello-world-action`,
-				want: Uses{
-					Name: "./.github/actions/hello-world-action",
-				},
-			},
-			"Docker Hub action": {
-				yaml: `docker://alpine:3.8`,
-				want: Uses{
-					Name: "docker://alpine:3.8",
-				},
-			},
-			"GitHub Packages Container registry action": {
-				yaml: `docker://ghcr.io/foo/bar`,
-				want: Uses{
-					Name: "docker://ghcr.io/foo/bar",
-				},
-			},
-			"Docker public registry action": {
-				yaml: `docker://gcr.io/cloud-builders/gradle`,
-				want: Uses{
-					Name: "docker://gcr.io/cloud-builders/gradle",
-				},
-			},
-		}
-
-		for name, tt := range okCases {
-			t.Run(name, func(t *testing.T) {
-				var got Uses
-				if err := yaml.Unmarshal([]byte(tt.yaml), &got); err != nil {
-					t.Fatalf("Want no error, got %#v", err)
-				}
-
-				checkUses(t, &got, &tt.want)
-			})
-		}
-
-		errCases := map[string]TestCase{
-			"Empty ref": {
-				yaml: `foo@`,
-			},
-			"Empty name": {
-				yaml: `@bar`,
-			},
-		}
-
-		for name, tt := range errCases {
-			t.Run(name, func(t *testing.T) {
-				var got Uses
-				if err := yaml.Unmarshal([]byte(tt.yaml), &got); err == nil {
-					t.Fatal("Want an error, got none")
-				}
-			})
-		}
-	})
-
-	t.Run("Roundtrip", func(t *testing.T) {
-		f := func(u Uses) bool {
-			b, err := yaml.Marshal(u)
+	for name, tt := range okCases {
+		t.Run("Marshal: "+name, func(t *testing.T) {
+			got, err := yaml.Marshal(tt.model)
 			if err != nil {
-				return true
+				t.Fatalf("Want no error, got %#v", err)
 			}
 
-			var got Uses
-			if err = yaml.Unmarshal(b, &got); err != nil {
-				return false
+			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
+				t.Errorf("Unexpected result (got %q, want %q)", got, want)
+			}
+		})
+
+		t.Run("Unmarshal: "+name, func(t *testing.T) {
+			var got Step
+			if err := yaml.Unmarshal([]byte(tt.yaml), &got); err != nil {
+				t.Fatalf("Want no error, got %#v", err)
 			}
 
+			checkStep(t, &got, &tt.model)
+		})
+	}
+
+	errCases := map[string]TestCase{
+		"Invalid 'env' value": {
+			yaml: `
+name: foobar
+env: not a map
+`,
+		},
+		"Invalid 'uses' value": {
+			yaml: `
+name: foo
+uses: ['foo', 'bar']
+`,
+		},
+		"Invalid 'with' value": {
+			yaml: `
+name: foobar
+with: not a map
+`,
+		},
+	}
+
+	for name, tt := range errCases {
+		t.Run(name, func(t *testing.T) {
+			var got Step
+			if err := yaml.Unmarshal([]byte(tt.yaml), &got); err == nil {
+				t.Fatal("Want an error, got none")
+			}
+		})
+	}
+
+	roundtrip := func(s Step) bool {
+		b, err := yaml.Marshal(s)
+		if err != nil {
 			return true
 		}
 
-		if err := quick.Check(f, nil); err != nil {
-			t.Error(err)
+		if err = yaml.Unmarshal(b, &s); err != nil {
+			return false
 		}
-	})
+
+		return true
+	}
+
+	if err := quick.Check(roundtrip, nil); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestUses(t *testing.T) {
+	type TestCase struct {
+		yaml  string
+		model Uses
+	}
+
+	okCases := map[string]TestCase{
+		"Versioned action, specific commit": {
+			yaml: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3`,
+			model: Uses{
+				Name: "actions/checkout",
+				Ref:  "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
+			},
+		},
+		"Versioned action, specific commit, with annotation": {
+			yaml: `actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v4.2.0`,
+			model: Uses{
+				Name:       "actions/checkout",
+				Ref:        "8f4b7f84864484a7bf31766abe9204da3cbe65b3",
+				Annotation: "v4.2.0",
+			},
+		},
+		"Versioned action, major version": {
+			yaml: `actions/checkout@v4`,
+			model: Uses{
+				Name: "actions/checkout",
+				Ref:  "v4",
+			},
+		},
+		"Versioned action, specific version": {
+			yaml: `actions/checkout@v4.2.0`,
+			model: Uses{
+				Name: "actions/checkout",
+				Ref:  "v4.2.0",
+			},
+		},
+		"Versioned action, branch": {
+			yaml: `actions/checkout@main`,
+			model: Uses{
+				Name: "actions/checkout",
+				Ref:  "main",
+			},
+		},
+		"Versioned action in a subdirectory": {
+			yaml: `actions/aws/ec2@main`,
+			model: Uses{
+				Name: "actions/aws/ec2",
+				Ref:  "main",
+			},
+		},
+		"In the same repository as the workflow": {
+			yaml: `./.github/actions/hello-world-action`,
+			model: Uses{
+				Name: "./.github/actions/hello-world-action",
+			},
+		},
+		"Docker Hub action": {
+			yaml: `docker://alpine:3.8`,
+			model: Uses{
+				Name: "docker://alpine:3.8",
+			},
+		},
+		"GitHub Packages Container registry action": {
+			yaml: `docker://ghcr.io/foo/bar`,
+			model: Uses{
+				Name: "docker://ghcr.io/foo/bar",
+			},
+		},
+		"Docker public registry action": {
+			yaml: `docker://gcr.io/cloud-builders/gradle`,
+			model: Uses{
+				Name: "docker://gcr.io/cloud-builders/gradle",
+			},
+		},
+	}
+
+	for name, tt := range okCases {
+		t.Run("Marshal: "+name, func(t *testing.T) {
+			got, err := yaml.Marshal(tt.model)
+			if err != nil {
+				t.Fatalf("Want no error, got %#v", err)
+			}
+
+			if got, want := string(got), tt.yaml+"\n"; got != want {
+				t.Errorf("Unexpected result (got %q, want %q)", got, want)
+			}
+		})
+
+		t.Run("Unmarshal: "+name, func(t *testing.T) {
+			var got Uses
+			if err := yaml.Unmarshal([]byte(tt.yaml), &got); err != nil {
+				t.Fatalf("Want no error, got %#v", err)
+			}
+
+			checkUses(t, &got, &tt.model)
+		})
+	}
+
+	errCases := map[string]TestCase{
+		"Missing name in model": {
+			model: Uses{
+				Ref: "bar",
+			},
+		},
+		"Missing name in yaml": {
+			yaml: `@bar`,
+		},
+		"Empty ref in yaml": {
+			yaml: `foo@`,
+		},
+	}
+
+	for name, tt := range errCases {
+		t.Run(name, func(t *testing.T) {
+			var err error
+			if testMarshall := len(tt.yaml) == 0; testMarshall {
+				_, err = yaml.Marshal(tt.model)
+			} else {
+				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
+			}
+
+			if err == nil {
+				t.Fatal("Want an error, got none")
+			}
+		})
+	}
+
+	roundtrip := func(u Uses) bool {
+		b, err := yaml.Marshal(u)
+		if err != nil {
+			return true
+		}
+
+		var got Uses
+		if err = yaml.Unmarshal(b, &got); err != nil {
+			return false
+		}
+
+		return true
+	}
+
+	if err := quick.Check(roundtrip, nil); err != nil {
+		t.Error(err)
+	}
+}
+
+func checkMap(t *testing.T, got, want map[string]string) {
+	t.Helper()
+
+	if got, want := len(got), len(want); got != want {
+		t.Errorf("Unexpected number of items in map (got %d, want %d)", got, want)
+		return
+	}
+
+	for k, got := range got {
+		want, ok := want[k]
+		if !ok {
+			t.Errorf("Got key %q in map, but do want it", k)
+			continue
+		}
+
+		if got != want {
+			t.Errorf("Unexpected value for key %q in map (got %q, want %q)", k, got, want)
+		}
+	}
+
+	for k, want := range want {
+		if _, ok := got[k]; !ok {
+			t.Errorf("Want key %q(=%q) in map, but it is not present", k, want)
+		}
+	}
 }
 
 func checkStep(t *testing.T, got, want *Step) {
@@ -405,8 +351,6 @@ func checkStep(t *testing.T, got, want *Step) {
 		t.Errorf("Unexpected name (got %q, want %q)", got, want)
 	}
 
-	checkUses(t, &got.Uses, &want.Uses)
-
 	if got, want := got.Run, want.Run; got != want {
 		t.Errorf("Unexpected run (got %q, want %q)", got, want)
 	}
@@ -415,41 +359,9 @@ func checkStep(t *testing.T, got, want *Step) {
 		t.Errorf("Unexpected shell (got %q, want %q)", got, want)
 	}
 
-	if got, want := got.Env, want.Env; len(got) != len(want) {
-		t.Errorf("Unexpected number of items in env (got %d, want %d)", len(got), len(want))
-	} else {
-		for k, got := range got {
-			if want, ok := want[k]; !ok {
-				t.Errorf("Unexpected key %q in env", k)
-			} else if got != want {
-				t.Errorf("Incorrect value for key %q in env (got %q, want %q)", k, got, want)
-			}
-		}
-
-		for k, want := range want {
-			if _, ok := got[k]; !ok {
-				t.Errorf("Missing key %q in env (want %q)", k, want)
-			}
-		}
-	}
-
-	if got, want := got.With, want.With; len(got) != len(want) {
-		t.Errorf("Unexpected number of items in with (got %d, want %d)", len(got), len(want))
-	} else {
-		for k, got := range got {
-			if want, ok := want[k]; !ok {
-				t.Errorf("Unexpected key %q in with", k)
-			} else if got != want {
-				t.Errorf("Incorrect value for key %q in with (got %q, want %q)", k, got, want)
-			}
-		}
-
-		for k, want := range want {
-			if _, ok := got[k]; !ok {
-				t.Errorf("Missing key %q in with (want %q)", k, want)
-			}
-		}
-	}
+	checkUses(t, &got.Uses, &want.Uses)
+	checkMap(t, got.Env, want.Env)
+	checkMap(t, got.With, want.With)
 }
 
 func checkUses(t *testing.T, got, want *Uses) {
