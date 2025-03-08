@@ -15,7 +15,7 @@ type Workflow struct {
 
 // Job is a model of a workflow job.
 type Job struct {
-	Name  string `yaml:"name"`
+	Name  string `yaml:"name,omitempty"`
 	Steps []Step `yaml:"steps"`
 }
 

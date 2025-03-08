@@ -91,8 +91,8 @@ run: echo 'foobaz'
 		},
 		"With a 'run:' and 'shell:'": {
 			yaml: `
-run: echo 'foobaz'
 shell: powershell
+run: echo 'foobaz'
 `,
 			model: Step{
 				Run:   "echo 'foobaz'",
@@ -124,31 +124,51 @@ shell: powershell
 	}
 
 	errCases := map[string]TestCase{
-		"Invalid 'env' value": {
+		"yaml: invalid 'name' value": {
 			yaml: `
-name: foobar
-env: not a map
+name:
+  foo: bar
 `,
 		},
-		"Invalid 'uses' value": {
+		"yaml: invalid 'uses' value": {
 			yaml: `
-name: foo
 uses: ['foo', 'bar']
 `,
 		},
-		"Invalid 'with' value": {
+		"yaml: invalid 'shell' value": {
 			yaml: `
-name: foobar
+shell:
+  foo: bar
+`,
+		},
+		"yaml: invalid 'run' value": {
+			yaml: `
+run: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'with' value": {
+			yaml: `
 with: not a map
+`,
+		},
+		"yaml: invalid 'env' value": {
+			yaml: `
+env: not a map
 `,
 		},
 	}
 
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
-			var got Step
-			if err := yaml.Unmarshal([]byte(tt.yaml), &got); err == nil {
-				t.Fatal("Want an error, got none")
+			var err error
+			if strings.HasPrefix(name, "model:") {
+				_, err = yaml.Marshal(tt.model)
+			} else {
+				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
+			}
+
+			if err == nil {
+				t.Error("Want an error, got none")
 			}
 		})
 	}
@@ -270,15 +290,15 @@ func TestUses(t *testing.T) {
 	}
 
 	errCases := map[string]TestCase{
-		"Missing name in model": {
+		"model: missing name": {
 			model: Uses{
 				Ref: "bar",
 			},
 		},
-		"Missing name in yaml": {
+		"yaml: missing name": {
 			yaml: `@bar`,
 		},
-		"Empty ref in yaml": {
+		"yaml: empty ref": {
 			yaml: `foo@`,
 		},
 	}
@@ -286,14 +306,14 @@ func TestUses(t *testing.T) {
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
 			var err error
-			if testMarshall := len(tt.yaml) == 0; testMarshall {
+			if strings.HasPrefix(name, "model:") {
 				_, err = yaml.Marshal(tt.model)
 			} else {
 				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
 			}
 
 			if err == nil {
-				t.Fatal("Want an error, got none")
+				t.Error("Want an error, got none")
 			}
 		})
 	}
@@ -341,6 +361,20 @@ func checkMap(t *testing.T, got, want map[string]string) {
 		if _, ok := got[k]; !ok {
 			t.Errorf("Want key %q(=%q) in map, but it is not present", k, want)
 		}
+	}
+}
+
+func checkSteps(t *testing.T, got, want []Step) {
+	t.Helper()
+
+	if got, want := len(got), len(want); got != want {
+		t.Errorf("Unexpected number of steps (got %d, want %d)", got, want)
+		return
+	}
+
+	for i, got := range got {
+		want := want[i]
+		checkStep(t, &got, &want)
 	}
 }
 
