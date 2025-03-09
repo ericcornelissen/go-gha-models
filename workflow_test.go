@@ -68,7 +68,6 @@ jobs:
               uses: actions/github-script@v6
               with:
                 script: console.log('${{ inputs.value }}')
-
 `,
 			model: Workflow{
 				Jobs: map[string]Job{
@@ -166,7 +165,7 @@ jobs:
 			}
 
 			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
-				t.Errorf("Unexpected result (got %q, want %q)", got, want)
+				t.Errorf("Unexpected result\n=== got ===\n%s\n=== want ===\n%s", got, want)
 			}
 		})
 
@@ -176,7 +175,8 @@ jobs:
 				t.Fatalf("Want no error, got %#v", err)
 			}
 
-			checkWorkflow(t, &got, &tt.model)
+			want := tt.model
+			checkWorkflow(t, &got, &want)
 		})
 	}
 
@@ -208,8 +208,10 @@ jobs:
 			var err error
 			if strings.HasPrefix(name, "model:") {
 				_, err = yaml.Marshal(tt.model)
-			} else {
+			} else if strings.HasPrefix(name, "yaml:") {
 				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
+			} else {
+				t.Fatalf("Incorrect test name %q", name)
 			}
 
 			if err == nil {

@@ -3,6 +3,7 @@
 package gha
 
 import (
+	"strings"
 	"testing"
 	"testing/quick"
 
@@ -11,8 +12,8 @@ import (
 
 func TestParseManifest(t *testing.T) {
 	type TestCase struct {
-		yaml string
-		want Manifest
+		yaml  string
+		model Manifest
 	}
 
 	okCases := map[string]TestCase{
@@ -22,10 +23,12 @@ name: Action name
 author: Action author
 description: Action description
 branding:
-  color: black
-  icon: coffee
+    color: black
+    icon: coffee
+runs:
+    using: composite
 `,
-			want: Manifest{
+			model: Manifest{
 				Name:        "Action name",
 				Author:      "Action author",
 				Description: "Action description",
@@ -33,26 +36,33 @@ branding:
 					Color: "black",
 					Icon:  "coffee",
 				},
+				Runs: Runs{
+					Using: "composite",
+				},
 			},
 		},
 		"Composite manifest": {
 			yaml: `
+name: Composite action example
+description: An example of a composite action
 runs:
-  using: composite
-  steps:
-  - name: Checkout repository
-    uses: actions/checkout@v3
-    with:
-      fetch-depth: 1
-  - name: Echo value (bash)
-    shell: bash
-    run: echo '${{ inputs.value }}'
-  - name: Echo value (JavaScript)
-    uses: actions/github-script@v6
-    with:
-      script: console.log('${{ inputs.value }}')
+    using: composite
+    steps:
+        - name: Checkout repository
+          uses: actions/checkout@v3
+          with:
+            fetch-depth: "1"
+        - name: Echo value (bash)
+          shell: bash
+          run: echo '${{ inputs.value }}'
+        - name: Echo value (JavaScript)
+          uses: actions/github-script@v6
+          with:
+            script: console.log('${{ inputs.value }}')
 `,
-			want: Manifest{
+			model: Manifest{
+				Name:        "Composite action example",
+				Description: "An example of a composite action",
 				Runs: Runs{
 					Using: "composite",
 					Steps: []Step{
@@ -87,18 +97,22 @@ runs:
 		},
 		"Docker-based manifest": {
 			yaml: `
+name: Docker action example
+description: An example of a Docker action
 runs:
-  using: docker
-  pre-entrypoint: pre.sh
-  entrypoint: entry.sh
-  post-entrypoint: post.sh
-  args:
-  - foo
-  - bar
-  env:
-    foo: bar
+    using: docker
+    pre-entrypoint: pre.sh
+    entrypoint: entry.sh
+    post-entrypoint: post.sh
+    args:
+        - foo
+        - bar
+    env:
+        foo: bar
 `,
-			want: Manifest{
+			model: Manifest{
+				Name:        "Docker action example",
+				Description: "An example of a Docker action",
 				Runs: Runs{
 					Using:          "docker",
 					Args:           []string{"foo", "bar"},
@@ -111,15 +125,19 @@ runs:
 		},
 		"Node-based manifest": {
 			yaml: `
+name: Node.js action example
+description: An example of a Node.js action
 runs:
-  using: node22
-  pre: pre.js
-  pre-if: ${{ always() }}
-  main: main.js
-  post: post.js
-  post-if: ${{ never() }}
+    using: node22
+    pre: pre.js
+    pre-if: ${{ always() }}
+    main: main.js
+    post: post.js
+    post-if: ${{ never() }}
 `,
-			want: Manifest{
+			model: Manifest{
+				Name:        "Node.js action example",
+				Description: "An example of a Node.js action",
 				Runs: Runs{
 					Using:  "node22",
 					Pre:    "pre.js",
@@ -132,144 +150,301 @@ runs:
 		},
 		"Inputs": {
 			yaml: `
+name: Action input example
+description: An example of Action inputs
 inputs:
-  foo:
-    default: bar
-    description: Hello world!
-    required: true
-  deprecated:
-    deprecationMessage: Hello world!
-  optional:
-    default: value
-    required: false
+    deprecated:
+        description: This input is deprecated
+        deprecationMessage: Hello world!
+    optional:
+        description: This input is optional
+        default: value
+    required:
+        description: This input is required
+        required: true
+runs:
+    using: composite
 `,
-			want: Manifest{
+			model: Manifest{
+				Name:        "Action input example",
+				Description: "An example of Action inputs",
 				Inputs: map[string]Input{
-					"foo": {
-						Default:     "bar",
-						Description: "Hello world!",
-						Required:    true,
-					},
 					"deprecated": {
+						Description:        "This input is deprecated",
 						DeprecationMessage: "Hello world!",
 					},
 					"optional": {
-						Required: false,
-						Default:  "value",
+						Description: "This input is optional",
+						Default:     "value",
+						Required:    false,
 					},
+					"required": {
+						Description: "This input is required",
+						Required:    true,
+					},
+				},
+				Runs: Runs{
+					Using: "composite",
 				},
 			},
 		},
 		"Outputs": {
 			yaml: `
+name: Action output example
+description: An example of Action outputs
 outputs:
-  described:
-    description: Hello world!
-  valued:
-    value: ${{ steps.random-number-generator.outputs.random-id }}
-  described-value:
-    description: A random number
-    value: ${{ steps.random-number-generator.outputs.random-id }}
+    described:
+        description: Hello world!
+        value: ""
+    described-value:
+        description: A random number
+        value: ${{ steps.random-number-generator.outputs.random-id-1 }}
+    valued:
+        description: ""
+        value: ${{ steps.random-number-generator.outputs.random-id-2 }}
+runs:
+    using: composite
 `,
-			want: Manifest{
+			model: Manifest{
+				Name:        "Action output example",
+				Description: "An example of Action outputs",
 				Outputs: map[string]Output{
 					"described": {
 						Description: "Hello world!",
 					},
-					"valued": {
-						Value: "${{ steps.random-number-generator.outputs.random-id }}",
-					},
 					"described-value": {
 						Description: "A random number",
-						Value:       "${{ steps.random-number-generator.outputs.random-id }}",
+						Value:       "${{ steps.random-number-generator.outputs.random-id-1 }}",
 					},
+					"valued": {
+						Value: "${{ steps.random-number-generator.outputs.random-id-2 }}",
+					},
+				},
+				Runs: Runs{
+					Using: "composite",
 				},
 			},
 		},
 	}
 
 	for name, tt := range okCases {
-		t.Run(name, func(t *testing.T) {
+		t.Run("Marshal: "+name, func(t *testing.T) {
+			got, err := yaml.Marshal(tt.model)
+			if err != nil {
+				t.Fatalf("Want no error, got %#v", err)
+			}
+
+			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
+				t.Errorf("Unexpected result\n=== got ===\n%s\n=== want ===\n%s", got, want)
+			}
+		})
+
+		t.Run("Unmarshal: "+name, func(t *testing.T) {
 			got, err := ParseManifest([]byte(tt.yaml))
 			if err != nil {
 				t.Fatalf("Want no error, got %#v", err)
 			}
 
-			checkManifest(t, &got, &tt.want)
+			want := tt.model
+			checkManifest(t, &got, &want)
 		})
 	}
 
 	errCases := map[string]TestCase{
-		"Invalid 'branding' value": {
-			yaml: `branding: 3.14`,
+		"yaml: invalid 'name' value": {
+			yaml: `
+name: ['foo', 'bar']
+`,
 		},
-		"Invalid 'input' value": {
-			yaml: `inputs: 3.14`,
+		"yaml: invalid 'author' value": {
+			yaml: `
+author: ['foo', 'bar']
+`,
 		},
-		"Invalid 'required' value for input": {
+		"yaml: invalid 'description' value": {
+			yaml: `
+description: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'branding' value": {
+			yaml: `
+branding: 3.14
+`,
+		},
+		"yaml: invalid 'color' value for branding": {
+			yaml: `
+branding:
+  color: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'icon' value for branding": {
+			yaml: `
+branding:
+  icon: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'inputs' value": {
+			yaml: `
+inputs: 3.14
+`,
+		},
+		"yaml: invalid 'default' value for input": {
+			yaml: `
+inputs:
+  foo:
+    default: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'deprecationMessage' value for input": {
+			yaml: `
+inputs:
+  foo:
+    deprecationMessage: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'description' value for input": {
+			yaml: `
+inputs:
+  foo:
+    description: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'required' value for input": {
 			yaml: `
 inputs:
   foo:
     required: bar
 `,
 		},
-		"Invalid 'output' value": {
-			yaml: `outputs: 3.14`,
-		},
-		"Invalid 'runs' value": {
-			yaml: `runs: 3.14`,
-		},
-		"Invalid 'args' value in runs": {
+		"yaml: invalid 'outputs' value": {
 			yaml: `
-runs:
-  using: docker
-  args: foobar
+outputs: 3.14
 `,
 		},
-		"Invalid 'env' value in runs": {
+		"yaml: invalid 'description' value for output": {
 			yaml: `
-runs:
-  using: docker
-  env: foobar
+outputs:
+  foo:
+    description: ['foo', 'bar']
 `,
 		},
-		"Invalid 'steps' value in runs": {
+		"yaml: invalid 'value' value for output": {
+			yaml: `
+outputs:
+  foo:
+    value: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'runs' value": {
+			yaml: `
+runs: 3.14
+`,
+		},
+		"yaml: invalid 'using' value in runs": {
+			yaml: `
+runs:
+  using: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'steps' value in runs": {
 			yaml: `
 runs:
   using: composite
   steps: 3.14
 `,
 		},
-		"Invalid 'env' value in step": {
+		"yaml: invalid 'image' value in runs": {
 			yaml: `
 runs:
-  using: composite
-  steps:
-  - env: 1.618
+  using: docker
+  image: ['foo', 'bar']
 `,
 		},
-		"Invalid 'uses' value in step": {
+		"yaml: invalid 'args' value in runs": {
 			yaml: `
 runs:
-  using: composite
-  steps:
-  - uses: ['foo', 'bar']
+  using: docker
+  args: foobar
 `,
 		},
-		"Invalid 'with' value in step": {
+		"yaml: invalid 'env' value in runs": {
 			yaml: `
 runs:
-  using: composite
-  steps:
-  - with: 1.618
+  using: docker
+  env: foobar
+`,
+		},
+		"yaml: invalid 'pre-entrypoint' value in runs": {
+			yaml: `
+runs:
+  using: docker
+  pre-entrypoint: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'entrypoint' value in runs": {
+			yaml: `
+runs:
+  using: docker
+  entrypoint: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'post-entrypoint' value in runs": {
+			yaml: `
+runs:
+  using: docker
+  post-entrypoint: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'pre' value in runs": {
+			yaml: `
+runs:
+  using: node
+  pre: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'pre-if' value in runs": {
+			yaml: `
+runs:
+  using: node
+  pre-if: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'main' value in runs": {
+			yaml: `
+runs:
+  using: node
+  main: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'post' value in runs": {
+			yaml: `
+runs:
+  using: node
+  post: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'post-if' value in runs": {
+			yaml: `
+runs:
+  using: node
+  post-if: ['foo', 'bar']
 `,
 		},
 	}
 
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
-			if _, err := ParseManifest([]byte(tt.yaml)); err == nil {
-				t.Fatal("Want an error, got none")
+			var err error
+			if strings.HasPrefix(name, "model:") {
+				_, err = yaml.Marshal(tt.model)
+			} else if strings.HasPrefix(name, "yaml:") {
+				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
+			} else {
+				t.Fatalf("Incorrect test name %q", name)
+			}
+
+			if err == nil {
+				t.Error("Want an error, got none")
 			}
 		})
 	}
