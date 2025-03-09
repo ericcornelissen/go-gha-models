@@ -109,7 +109,7 @@ run: echo 'foobaz'
 			}
 
 			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
-				t.Errorf("Unexpected result (got %q, want %q)", got, want)
+				t.Errorf("Unexpected result\n=== got ===\n%s\n=== want ===\n%s", got, want)
 			}
 		})
 
@@ -119,7 +119,8 @@ run: echo 'foobaz'
 				t.Fatalf("Want no error, got %#v", err)
 			}
 
-			checkStep(t, &got, &tt.model)
+			want := tt.model
+			checkStep(t, &got, &want)
 		})
 	}
 
@@ -163,8 +164,10 @@ env: not a map
 			var err error
 			if strings.HasPrefix(name, "model:") {
 				_, err = yaml.Marshal(tt.model)
-			} else {
+			} else if strings.HasPrefix(name, "yaml:") {
 				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
+			} else {
+				t.Fatalf("Incorrect test name %q", name)
 			}
 
 			if err == nil {
@@ -285,7 +288,8 @@ func TestUses(t *testing.T) {
 				t.Fatalf("Want no error, got %#v", err)
 			}
 
-			checkUses(t, &got, &tt.model)
+			want := tt.model
+			checkUses(t, &got, &want)
 		})
 	}
 
@@ -308,8 +312,10 @@ func TestUses(t *testing.T) {
 			var err error
 			if strings.HasPrefix(name, "model:") {
 				_, err = yaml.Marshal(tt.model)
-			} else {
+			} else if strings.HasPrefix(name, "yaml:") {
 				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
+			} else {
+				t.Fatalf("Incorrect test name %q", name)
 			}
 
 			if err == nil {
