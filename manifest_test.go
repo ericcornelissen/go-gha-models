@@ -433,14 +433,7 @@ func checkRuns(t *testing.T, got, want *Runs) {
 
 	/* using: composite */
 
-	if got, want := got.Steps, want.Steps; len(got) != len(want) {
-		t.Errorf("Unexpected number of runs steps (got %d, want %d)", len(got), len(want))
-	} else {
-		for i, got := range got {
-			want := want[i]
-			checkStep(t, &got, &want)
-		}
-	}
+	checkSteps(t, got.Steps, want.Steps)
 
 	/* using: docker */
 
