@@ -32,16 +32,46 @@ func TestStep(t *testing.T) {
 				},
 			},
 		},
-		"With a 'run:'": {
-			yaml: `run: echo 'foobar'`,
+		"With an 'id:'": {
+			yaml: `id: foobar`,
 			model: Step{
-				Run: "echo 'foobar'",
+				Id: "foobar",
+			},
+		},
+		"With an 'if:'": {
+			yaml: `if: ${{ 'foo' == 'bar' }}`,
+			model: Step{
+				If: "${{ 'foo' == 'bar' }}",
+			},
+		},
+		"With 'continue-on-error:'": {
+			yaml: `continue-on-error: true`,
+			model: Step{
+				ContinueOnError: true,
+			},
+		},
+		"With 'timeout-minutes:'": {
+			yaml: `timeout-minutes: 10`,
+			model: Step{
+				TimeoutMinutes: 10,
+			},
+		},
+		"With a 'working-directory:'": {
+			yaml: `working-directory: /foo/bar`,
+			model: Step{
+				WorkingDirectory: "/foo/bar",
 			},
 		},
 		"With a 'shell:'": {
 			yaml: `shell: bash`,
 			model: Step{
 				Shell: "bash",
+			},
+		},
+		"With a 'run:'": {
+			yaml: `run: echo 'foobar'`,
+			model: Step{
+				Run: "echo 'foobar'",
 			},
 		},
 		"With a 'with:'": {
@@ -134,6 +164,30 @@ name:
 		"yaml: invalid 'uses' value": {
 			yaml: `
 uses: ['foo', 'bar']
+`,
+		},
+		"yaml: invalid 'id' value": {
+			yaml: `
+id:
+  foo: bar
+`,
+		},
+		"yaml: invalid 'if' value": {
+			yaml: `
+if:
+  foo: bar
+`,
+		},
+		"yaml: invalid 'continue-on-error' value": {
+			yaml: `continue-on-error: foobar`,
+		},
+		"yaml: invalid 'timeout-minutes' value": {
+			yaml: `timeout-minutes: foobar`,
+		},
+		"yaml: invalid 'working-directory' value": {
+			yaml: `
+working-directory:
+  foo: bar
 `,
 		},
 		"yaml: invalid 'shell' value": {
@@ -391,17 +445,37 @@ func checkStep(t *testing.T, got, want *Step) {
 		t.Errorf("Unexpected name (got %q, want %q)", got, want)
 	}
 
-	if got, want := got.Run, want.Run; got != want {
-		t.Errorf("Unexpected run (got %q, want %q)", got, want)
+	if got, want := got.Id, want.Id; got != want {
+		t.Errorf("Unexpected id (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.If, want.If; got != want {
+		t.Errorf("Unexpected if (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.ContinueOnError, want.ContinueOnError; got != want {
+		t.Errorf("Unexpected continue-on-error (got %t, want %t)", got, want)
+	}
+
+	if got, want := got.TimeoutMinutes, want.TimeoutMinutes; got != want {
+		t.Errorf("Unexpected timeout-minutes (got %d, want %d)", got, want)
+	}
+
+	if got, want := got.WorkingDirectory, want.WorkingDirectory; got != want {
+		t.Errorf("Unexpected working-directory (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Shell, want.Shell; got != want {
 		t.Errorf("Unexpected shell (got %q, want %q)", got, want)
 	}
 
+	if got, want := got.Run, want.Run; got != want {
+		t.Errorf("Unexpected run (got %q, want %q)", got, want)
+	}
+
 	checkUses(t, &got.Uses, &want.Uses)
-	checkMap(t, got.Env, want.Env)
 	checkMap(t, got.With, want.With)
+	checkMap(t, got.Env, want.Env)
 }
 
 func checkUses(t *testing.T, got, want *Uses) {
