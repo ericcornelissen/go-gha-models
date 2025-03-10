@@ -13,12 +13,17 @@ import (
 
 // Step is a model of a workflow/manifest job step.
 type Step struct {
-	Name  string            `yaml:"name,omitempty"`
-	Uses  Uses              `yaml:"uses,omitempty"`
-	Shell string            `yaml:"shell,omitempty"`
-	Run   string            `yaml:"run,omitempty"`
-	With  map[string]string `yaml:"with,omitempty"`
-	Env   map[string]string `yaml:"env,omitempty"`
+	Name             string            `yaml:"name,omitempty"`
+	Uses             Uses              `yaml:"uses,omitempty"`
+	Id               string            `yaml:"id,omitempty"`
+	If               string            `yaml:"if,omitempty"`
+	ContinueOnError  bool              `yaml:"continue-on-error,omitempty"`
+	TimeoutMinutes   uint              `yaml:"timeout-minutes,omitempty"`
+	WorkingDirectory string            `yaml:"working-directory,omitempty"`
+	Shell            string            `yaml:"shell,omitempty"`
+	Run              string            `yaml:"run,omitempty"`
+	With             map[string]string `yaml:"with,omitempty"`
+	Env              map[string]string `yaml:"env,omitempty"`
 }
 
 // Uses is a model of a step `uses:` value.
