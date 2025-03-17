@@ -406,13 +406,9 @@ func checkMap(t *testing.T, got, want map[string]string) {
 	}
 
 	for k, got := range got {
-		want, ok := want[k]
-		if !ok {
+		if want, ok := want[k]; !ok {
 			t.Errorf("Got key %q in map, but do want it", k)
-			continue
-		}
-
-		if got != want {
+		} else if got != want {
 			t.Errorf("Unexpected value for key %q in map (got %q, want %q)", k, got, want)
 		}
 	}

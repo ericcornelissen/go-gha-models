@@ -280,21 +280,53 @@ jobs:
 func checkWorkflow(t *testing.T, got, want *Workflow) {
 	t.Helper()
 
-	if got, want := got.Jobs, want.Jobs; len(got) != len(want) {
-		t.Errorf("Unexpected number of jobs (got %d, want %d)", len(got), len(want))
-	} else {
-		for name := range want {
-			if _, ok := got[name]; !ok {
-				t.Errorf("Want job named %q but it is not present", name)
-			}
-		}
+	if got, want := got.Name, want.Name; got != want {
+		t.Errorf("Unexpected name (got %q, want %q)", got, want)
+	}
 
-		for name, got := range got {
-			if want, ok := want[name]; !ok {
-				t.Errorf("Got job named %q but it is not wanted", name)
-			} else {
-				checkJob(t, &got, &want)
-			}
+	if got, want := got.RunName, want.RunName; got != want {
+		t.Errorf("Unexpected run-name (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.Concurrency.CancelInProgress, want.Concurrency.CancelInProgress; got != want {
+		t.Errorf("Unexpected concurrency.cancel-in-progress (got %t, want %t)", got, want)
+	}
+
+	if got, want := got.Concurrency.Group, want.Concurrency.Group; got != want {
+		t.Errorf("Unexpected concurrency.group (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.Defaults.Run.Shell, want.Defaults.Run.Shell; got != want {
+		t.Errorf("Unexpected defaults.run.shell (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.Defaults.Run.WorkingDirectory, want.Defaults.Run.WorkingDirectory; got != want {
+		t.Errorf("Unexpected defaults.run.working-directory (got %q, want %q)", got, want)
+	}
+
+	checkMap(t, got.Env, want.Env)
+	checkJobs(t, got.Jobs, want.Jobs)
+}
+
+func checkJobs(t *testing.T, got, want map[string]Job) {
+	t.Helper()
+
+	if got, want := len(got), len(want); got != want {
+		t.Errorf("Unexpected number of jobs (got %d, want %d)", got, want)
+		return
+	}
+
+	for name, got := range got {
+		if want, ok := want[name]; !ok {
+			t.Errorf("Got job named %q but it is not wanted", name)
+		} else {
+			checkJob(t, &got, &want)
+		}
+	}
+
+	for name := range want {
+		if _, ok := got[name]; !ok {
+			t.Errorf("Want job named %q but it is not present", name)
 		}
 	}
 }
