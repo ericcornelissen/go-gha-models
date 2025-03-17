@@ -10,7 +10,28 @@ import (
 
 // Workflow is a model of a GitHub Actions workflow.
 type Workflow struct {
-	Jobs map[string]Job `yaml:"jobs"`
+	Name        string            `yaml:"name,omitempty"`
+	RunName     string            `yaml:"run-name,omitempty"`
+	Concurrency Concurrency       `yaml:"concurrency,omitempty"`
+	Defaults    Defaults          `yaml:"defaults,omitempty"`
+	Env         map[string]string `yaml:"env,omitempty"`
+	Jobs        map[string]Job    `yaml:"jobs"`
+}
+
+// Concurrency is a model of a GitHub Actions `concurrency:` object.
+type Concurrency struct {
+	CancelInProgress bool
+	Group            string
+}
+
+// Defaults is a model of a GitHub Actions `defaults:` object.
+type Defaults struct {
+	Run DefaultsRun
+}
+
+type DefaultsRun struct {
+	Shell            string
+	WorkingDirectory string
 }
 
 // Job is a model of a workflow job.
