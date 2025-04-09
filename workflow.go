@@ -10,6 +10,7 @@ import (
 
 // Workflow is a model of a GitHub Actions workflow.
 type Workflow struct {
+	Name string         `yaml:"name,omitempty"`
 	Jobs map[string]Job `yaml:"jobs"`
 }
 
