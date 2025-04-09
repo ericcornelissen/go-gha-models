@@ -3,12 +3,34 @@
 package gha
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"testing/quick"
 
 	"gopkg.in/yaml.v3"
 )
+
+func ExampleParseManifest() {
+	yaml := `
+name: Hello World
+description: Greet someone and record the time
+inputs:
+  who-to-greet:  # id of input
+    description: Who to greet
+    required: true
+    default: World
+outputs:
+  time: # id of output
+    description: The time we greeted you
+runs:
+  using: node20
+  main: index.js`
+
+	manifest, _ := ParseManifest([]byte(yaml))
+	fmt.Println(manifest.Name)
+	// Output: Hello World
+}
 
 func TestParseManifest(t *testing.T) {
 	type TestCase struct {
