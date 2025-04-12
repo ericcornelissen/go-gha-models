@@ -3,12 +3,34 @@
 package gha
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"testing/quick"
 
 	"gopkg.in/yaml.v3"
 )
+
+func ExampleParseWorkflow() {
+	yaml := `
+name: learn-github-actions
+run-name: ${{ github.actor }} is learning GitHub Actions
+on: [push]
+jobs:
+  check-bats-version:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - run: npm install -g bats
+    - run: bats -v`
+
+	workflow, _ := ParseWorkflow([]byte(yaml))
+	fmt.Println(workflow.Name)
+	// Output: learn-github-actions
+}
 
 func TestParseWorkflow(t *testing.T) {
 	type TestCase struct {
@@ -19,9 +41,10 @@ func TestParseWorkflow(t *testing.T) {
 	okCases := map[string]TestCase{
 		"Workflow with 'run:'": {
 			yaml: `
+name: Example workflow
 jobs:
     example:
-        name: Example
+        name: Example job
         steps:
             - name: Checkout repository
               uses: actions/checkout@v3
@@ -31,9 +54,10 @@ jobs:
               run: echo '${{ inputs.value }}'
 `,
 			model: Workflow{
+				Name: "Example workflow",
 				Jobs: map[string]Job{
 					"example": {
-						Name: "Example",
+						Name: "Example job",
 						Steps: []Step{
 							{
 								Name: "Checkout repository",
@@ -282,6 +306,16 @@ func checkWorkflow(t *testing.T, got, want *Workflow) {
 
 	if got, want := got.Name, want.Name; got != want {
 		t.Errorf("Unexpected name (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.Jobs, want.Jobs; len(got) != len(want) {
+		t.Errorf("Unexpected number of jobs (got %d, want %d)", len(got), len(want))
+	} else {
+		for name := range want {
+			if _, ok := got[name]; !ok {
+				t.Errorf("Want job named %q but it is not present", name)
+			}
+		}
 	}
 
 	if got, want := got.RunName, want.RunName; got != want {

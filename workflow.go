@@ -20,18 +20,18 @@ type Workflow struct {
 
 // Concurrency is a model of a GitHub Actions `concurrency:` object.
 type Concurrency struct {
-	CancelInProgress bool
-	Group            string
+	CancelInProgress bool   `yaml:"cancel-in-progress,omitempty"`
+	Group            string `yaml:"group,omitempty"`
 }
 
 // Defaults is a model of a GitHub Actions `defaults:` object.
 type Defaults struct {
-	Run DefaultsRun
+	Run DefaultsRun `yaml:"run,omitempty"`
 }
 
 type DefaultsRun struct {
-	Shell            string
-	WorkingDirectory string
+	Shell            string `yaml:"shell,omitempty"`
+	WorkingDirectory string `yaml:"working-directory,omitempty"`
 }
 
 // Job is a model of a workflow job.
