@@ -4,6 +4,7 @@ package gha
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"testing/quick"
@@ -39,145 +40,143 @@ func TestParseWorkflow(t *testing.T) {
 	}
 
 	okCases := map[string]TestCase{
-		"Workflow with 'run:'": {
+		"Workflow metadata": {
 			yaml: `
 name: Example workflow
-jobs:
-    example:
-        name: Example job
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v3
-              with:
-                fetch-depth: "1"
-            - name: Echo value
-              run: echo '${{ inputs.value }}'
+run-name: Example run by @${{ github.actor }}
+concurrency:
+    cancel-in-progress: true
+    group: group A
+defaults:
+    run:
+        shell: bash
+        working-directory: ./scripts
+env:
+    FOO: bar
+jobs: {}
 `,
 			model: Workflow{
-				Name: "Example workflow",
-				Jobs: map[string]Job{
-					"example": {
-						Name: "Example job",
-						Steps: []Step{
-							{
-								Name: "Checkout repository",
-								Uses: Uses{
-									Name: "actions/checkout",
-									Ref:  "v3",
-								},
-								With: map[string]string{
-									"fetch-depth": "1",
-								},
-							},
-							{
-								Name: "Echo value",
-								Run:  "echo '${{ inputs.value }}'",
-							},
-						},
+				Name:    "Example workflow",
+				RunName: "Example run by @${{ github.actor }}",
+				Concurrency: Concurrency{
+					CancelInProgress: true,
+					Group:            "group A",
+				},
+				Env: map[string]string{"FOO": "bar"},
+				Defaults: Defaults{
+					Run: DefaultsRun{
+						Shell:            "bash",
+						WorkingDirectory: "./scripts",
 					},
 				},
 			},
 		},
-		"Workflow with 'actions/github-script'": {
+		"Job metadata": {
 			yaml: `
 jobs:
-    example:
+    job1:
         name: Example
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v3
-              with:
-                fetch-depth: "1"
-            - name: Echo value
-              uses: actions/github-script@v6
-              with:
-                script: console.log('${{ inputs.value }}')
+        runs-on: ubuntu-latest
+        environment: foo-env
+        continue-on-error: true
+        timeout-minutes: 60
+        if: foo == 'bar'
+        needs:
+            - job2
+        defaults:
+            run:
+                shell: bash
+                working-directory: ./scripts
+        outputs:
+            output1: ${{ steps.step1.outputs.test }}
+            output2: ${{ steps.step2.outputs.test }}
+        concurrency:
+            cancel-in-progress: true
+            group: group B
+        permissions:
+            packages: write
+            statuses: read
+        env:
+            FOO: baz
+    job2:
+        environment:
+            name: bar-env
+            url: https://example.com
 `,
 			model: Workflow{
 				Jobs: map[string]Job{
-					"example": {
-						Name: "Example",
-						Steps: []Step{
-							{
-								Name: "Checkout repository",
-								Uses: Uses{
-									Name: "actions/checkout",
-									Ref:  "v3",
-								},
-								With: map[string]string{
-									"fetch-depth": "1",
-								},
+					"job1": {
+						Name:   "Example",
+						RunsOn: "ubuntu-latest",
+						Environment: Environment{
+							Name: "foo-env",
+						},
+						ContinueOnError: true,
+						TimeoutMinutes:  60,
+						If:              "foo == 'bar'",
+						Needs:           []string{"job2"},
+						Defaults: Defaults{
+							Run: DefaultsRun{
+								Shell:            "bash",
+								WorkingDirectory: "./scripts",
 							},
-							{
-								Name: "Echo value",
-								Uses: Uses{
-									Name: "actions/github-script",
-									Ref:  "v6",
-								},
-								With: map[string]string{
-									"script": "console.log('${{ inputs.value }}')",
-								},
-							},
+						},
+						Outputs: map[string]string{
+							"output1": "${{ steps.step1.outputs.test }}",
+							"output2": "${{ steps.step2.outputs.test }}",
+						},
+						Concurrency: Concurrency{
+							CancelInProgress: true,
+							Group:            "group B",
+						},
+						Permissions: Permissions{
+							Actions:        "none",
+							Attestations:   "none",
+							Checks:         "none",
+							Contents:       "none",
+							Deployments:    "none",
+							Discussions:    "none",
+							IdToken:        "none",
+							Issues:         "none",
+							Models:         "none",
+							Packages:       "write",
+							Pages:          "none",
+							PullRequests:   "none",
+							SecurityEvents: "none",
+							Statuses:       "read",
+						},
+						Env: map[string]string{"FOO": "baz"},
+					},
+					"job2": {
+						Environment: Environment{
+							Name: "bar-env",
+							Url:  "https://example.com",
 						},
 					},
 				},
 			},
 		},
-		"No names": {
+		"Job with 'uses:'": {
 			yaml: `
 jobs:
     example:
-        steps:
-            - uses: actions/setup-node@v3
-              with:
-                node-version: "20"
-            - run: echo ${{ inputs.value }}
+        uses: octo-org/example-repo/.github/workflows/called-workflow.yml@main
+        with:
+            foo: bar
+        secrets:
+            foo: baz
 `,
 			model: Workflow{
 				Jobs: map[string]Job{
 					"example": {
-						Steps: []Step{
-							{
-								Uses: Uses{
-									Name: "actions/setup-node",
-									Ref:  "v3",
-								},
-								With: map[string]string{
-									"node-version": "20",
-								},
-							},
-							{
-								Run: "echo ${{ inputs.value }}",
-							},
-						},
+						Uses:    "octo-org/example-repo/.github/workflows/called-workflow.yml@main",
+						With:    map[string]string{"foo": "bar"},
+						Secrets: map[string]string{"foo": "baz"},
 					},
 				},
 			},
 		},
-		"Version annotation": {
-			yaml: `
-jobs:
-    example:
-        steps:
-            - uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
-`,
-			model: Workflow{
-				Jobs: map[string]Job{
-					"example": {
-						Steps: []Step{
-							{
-								Uses: Uses{
-									Name:       "actions/checkout",
-									Ref:        "0ad4b8fadaa221de15dcec353f45205ec38ea70b",
-									Annotation: "v4",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		"some permissions": {
+		"Workflow with only some permissions": {
 			yaml: `
 permissions:
     actions: read
@@ -220,7 +219,7 @@ jobs:
 				},
 			},
 		},
-		"permissions: read-all": {
+		"Workflow with `permissions: read-all`": {
 			yaml: `
 permissions: read-all
 jobs:
@@ -259,7 +258,7 @@ jobs:
 				},
 			},
 		},
-		"permissions: write-all": {
+		"Workflow with `permissions: write-all`": {
 			yaml: `
 permissions: write-all
 jobs:
@@ -298,7 +297,7 @@ jobs:
 				},
 			},
 		},
-		"permissions: {}": {
+		"Workflow with `permissions: {}`": {
 			yaml: `
 permissions: {}
 jobs:
@@ -380,7 +379,7 @@ permissions:
 jobs: 3.14
 `,
 		},
-		"yaml: invalid 'name' value": {
+		"yaml: invalid job 'name' value": {
 			yaml: `
 jobs:
   example:
@@ -388,7 +387,16 @@ jobs:
     - uses: actions/checkout@v4
 `,
 		},
-		"yaml: invalid 'steps' value": {
+		"yaml: invalid job 'environment' value": {
+			yaml: `
+jobs:
+  example:
+    environment:
+    - foo
+    - bar
+`,
+		},
+		"yaml: invalid job 'steps' value": {
 			yaml: `
 jobs:
   example:
@@ -400,11 +408,12 @@ jobs:
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
 			var err error
-			if strings.HasPrefix(name, "model:") {
+			switch {
+			case strings.HasPrefix(name, "model:"):
 				_, err = yaml.Marshal(tt.model)
-			} else if strings.HasPrefix(name, "yaml:") {
+			case strings.HasPrefix(name, "yaml:"):
 				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
-			} else {
+			default:
 				t.Fatalf("Incorrect test name %q", name)
 			}
 
@@ -482,22 +491,8 @@ func checkWorkflow(t *testing.T, got, want *Workflow) {
 		t.Errorf("Unexpected run-name (got %q, want %q)", got, want)
 	}
 
-	if got, want := got.Concurrency.CancelInProgress, want.Concurrency.CancelInProgress; got != want {
-		t.Errorf("Unexpected concurrency.cancel-in-progress (got %t, want %t)", got, want)
-	}
-
-	if got, want := got.Concurrency.Group, want.Concurrency.Group; got != want {
-		t.Errorf("Unexpected concurrency.group (got %q, want %q)", got, want)
-	}
-
-	if got, want := got.Defaults.Run.Shell, want.Defaults.Run.Shell; got != want {
-		t.Errorf("Unexpected defaults.run.shell (got %q, want %q)", got, want)
-	}
-
-	if got, want := got.Defaults.Run.WorkingDirectory, want.Defaults.Run.WorkingDirectory; got != want {
-		t.Errorf("Unexpected defaults.run.working-directory (got %q, want %q)", got, want)
-	}
-
+	checkConcurrency(t, got.Concurrency, want.Concurrency)
+	checkDefaults(t, got.Defaults, want.Defaults)
 	checkPermissions(t, got.Permissions, want.Permissions)
 	checkMap(t, got.Env, want.Env)
 	checkJobs(t, got.Jobs, want.Jobs)
@@ -533,7 +528,65 @@ func checkJob(t *testing.T, got, want *Job) {
 		t.Errorf("Unexpected name (got %q, want %q)", got, want)
 	}
 
+	if got, want := got.RunsOn, want.RunsOn; got != want {
+		t.Errorf("Unexpected runs-on (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.TimeoutMinutes, want.TimeoutMinutes; got != want {
+		t.Errorf("Unexpected timeout-minutes (got %d, want %d)", got, want)
+	}
+
+	if got, want := got.If, want.If; got != want {
+		t.Errorf("Unexpected if (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.Needs, want.Needs; !slices.Equal(got, want) {
+		t.Errorf("Unexpected needs (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.Uses, want.Uses; got != want {
+		t.Errorf("Unexpected uses (got %q, want %q)", got, want)
+	}
+
+	checkConcurrency(t, got.Concurrency, want.Concurrency)
+	checkDefaults(t, got.Defaults, want.Defaults)
+	checkMap(t, got.Env, want.Env)
+	checkEnvironment(t, got.Environment, want.Environment)
+	checkMap(t, got.Outputs, want.Outputs)
+	checkPermissions(t, got.Permissions, want.Permissions)
 	checkSteps(t, got.Steps, want.Steps)
+	checkMap(t, got.With, want.With)
+	checkMap(t, got.Secrets, want.Secrets)
+}
+
+func checkConcurrency(t *testing.T, got, want Concurrency) {
+	if got, want := got.CancelInProgress, want.CancelInProgress; got != want {
+		t.Errorf("Unexpected concurrency.cancel-in-progress (got %t, want %t)", got, want)
+	}
+
+	if got, want := got.Group, want.Group; got != want {
+		t.Errorf("Unexpected concurrency.group (got %q, want %q)", got, want)
+	}
+}
+
+func checkDefaults(t *testing.T, got, want Defaults) {
+	if got, want := got.Run.Shell, want.Run.Shell; got != want {
+		t.Errorf("Unexpected defaults.run.shell (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.Run.WorkingDirectory, want.Run.WorkingDirectory; got != want {
+		t.Errorf("Unexpected defaults.run.working-directory (got %q, want %q)", got, want)
+	}
+}
+
+func checkEnvironment(t *testing.T, got, want Environment) {
+	if got, want := got.Name, want.Name; got != want {
+		t.Errorf("Unexpected environment.name (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.Url, want.Url; got != want {
+		t.Errorf("Unexpected environment.url (got %q, want %q)", got, want)
+	}
 }
 
 func checkPermissions(t *testing.T, got, want Permissions) {

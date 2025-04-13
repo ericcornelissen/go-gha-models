@@ -216,11 +216,12 @@ env: not a map
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
 			var err error
-			if strings.HasPrefix(name, "model:") {
+			switch {
+			case strings.HasPrefix(name, "model:"):
 				_, err = yaml.Marshal(tt.model)
-			} else if strings.HasPrefix(name, "yaml:") {
+			case strings.HasPrefix(name, "yaml:"):
 				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
-			} else {
+			default:
 				t.Fatalf("Incorrect test name %q", name)
 			}
 
@@ -364,11 +365,12 @@ func TestUses(t *testing.T) {
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
 			var err error
-			if strings.HasPrefix(name, "model:") {
+			switch {
+			case strings.HasPrefix(name, "model:"):
 				_, err = yaml.Marshal(tt.model)
-			} else if strings.HasPrefix(name, "yaml:") {
+			case strings.HasPrefix(name, "yaml:"):
 				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
-			} else {
+			default:
 				t.Fatalf("Incorrect test name %q", name)
 			}
 

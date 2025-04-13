@@ -19,6 +19,32 @@ type Workflow struct {
 	Jobs        map[string]Job    `yaml:"jobs"`
 }
 
+// Job is a model of a workflow job.
+type Job struct {
+	Name            string            `yaml:"name,omitempty"`
+	RunsOn          string            `yaml:"runs-on,omitempty"`
+	Environment     Environment       `yaml:"environment,omitempty"`
+	ContinueOnError bool              `yaml:"continue-on-error,omitempty"`
+	TimeoutMinutes  int               `yaml:"timeout-minutes,omitempty"`
+	If              string            `yaml:"if,omitempty"`
+	Needs           []string          `yaml:"needs,omitempty"`
+	Defaults        Defaults          `yaml:"defaults,omitempty"`
+	Outputs         map[string]string `yaml:"outputs,omitempty"`
+	Concurrency     Concurrency       `yaml:"concurrency,omitempty"`
+	Permissions     Permissions       `yaml:"permissions,omitempty"`
+	Env             map[string]string `yaml:"env,omitempty"`
+
+	/* step-based job */
+
+	Steps []Step `yaml:"steps,omitempty"`
+
+	/* uses-based job */
+
+	Uses    string            `yaml:"uses,omitempty"`
+	With    map[string]string `yaml:"with,omitempty"`
+	Secrets map[string]string `yaml:"secrets,omitempty"`
+}
+
 // Concurrency is a model of a GitHub Actions `concurrency:` object.
 type Concurrency struct {
 	CancelInProgress bool   `yaml:"cancel-in-progress,omitempty"`
@@ -35,10 +61,47 @@ type DefaultsRun struct {
 	WorkingDirectory string `yaml:"working-directory,omitempty"`
 }
 
-// Job is a model of a workflow job.
-type Job struct {
-	Name  string `yaml:"name,omitempty"`
-	Steps []Step `yaml:"steps"`
+// Environment is a model of a GitHub Actions `environment:` object.
+type Environment struct {
+	Name string `yaml:"name,omitempty"`
+	Url  string `yaml:"url,omitempty"`
+}
+
+func (e *Environment) UnmarshalYAML(n *yaml.Node) error {
+	switch n.Kind {
+	case yaml.ScalarNode:
+		e.Name = n.Value
+	case yaml.MappingNode:
+		var perms map[string]string
+		_ = n.Decode(&perms)
+
+		if v, ok := perms["name"]; ok {
+			e.Name = v
+		}
+		if v, ok := perms["url"]; ok {
+			e.Url = v
+		}
+	default:
+		return fmt.Errorf("invalid environment %q", n.Value)
+	}
+
+	return nil
+}
+
+func (e Environment) MarshalYAML() (interface{}, error) {
+	n := yaml.Node{}
+	if e.Url == "" {
+		n.Kind = yaml.ScalarNode
+		n.Tag = "!!str"
+		n.Value = e.Name
+	} else {
+		env := make(map[string]string, 2)
+		env["name"] = e.Name
+		env["url"] = e.Url
+		_ = n.Encode(env)
+	}
+
+	return n, nil
 }
 
 // Permissions is a model of a GitHub Actions `permissions:` object.
@@ -85,7 +148,7 @@ func (p *Permissions) UnmarshalYAML(n *yaml.Node) error {
 		case "write-all":
 			all("write")
 		default:
-			return fmt.Errorf("invalid permissions value %s", n.Value)
+			return fmt.Errorf("invalid permissions value %q", n.Value)
 		}
 	case yaml.MappingNode:
 		var perms map[string]string
@@ -144,7 +207,7 @@ func (p *Permissions) UnmarshalYAML(n *yaml.Node) error {
 			p.Statuses = v
 		}
 	default:
-		return fmt.Errorf("invalid permissions %s", n.Value)
+		return fmt.Errorf("invalid permissions %q", n.Value)
 	}
 
 	return nil
