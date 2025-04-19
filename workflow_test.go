@@ -82,13 +82,13 @@ jobs:
         if: foo == 'bar'
         needs:
             - job2
+        concurrency:
+            cancel-in-progress: true
+            group: group B
         defaults:
             run:
                 shell: bash
                 working-directory: ./scripts
-        concurrency:
-            cancel-in-progress: true
-            group: group B
         services:
             nginx:
                 image: nginx
@@ -482,6 +482,20 @@ jobs:
 	}
 
 	errCases := map[string]TestCase{
+		"yaml: invalid 'name' value": {
+			yaml: `
+name:
+- foo
+- bar
+`,
+		},
+		"yaml: invalid 'run-name' value": {
+			yaml: `
+run-name:
+- foo
+- bar
+`,
+		},
 		"yaml: invalid 'permissions' value, scalar": {
 			yaml: `
 permissions: 3.14
@@ -492,6 +506,59 @@ permissions: 3.14
 permissions:
 - foo
 - bar
+`,
+		},
+		"yaml: invalid 'permissions.[*]' value": {
+			yaml: `
+permissions:
+    issues: [3, 14]
+`,
+		},
+		"yaml: invalid 'concurrency' value": {
+			yaml: `
+concurrency: 3.14
+`,
+		},
+		"yaml: invalid 'concurrency.cancel-in-progress' value": {
+			yaml: `
+concurrency:
+    cancel-in-progress: foobar
+`,
+		},
+		"yaml: invalid 'concurrency.group' value": {
+			yaml: `
+concurrency:
+    group: [42]
+`,
+		},
+		"yaml: invalid 'defaults' value": {
+			yaml: `
+defaults: 3
+`,
+		},
+		"yaml: invalid 'defaults.run' value": {
+			yaml: `
+defaults:
+  run: 14
+`,
+		},
+		"yaml: invalid 'defaults.run.shell' value": {
+			yaml: `
+defaults:
+  run:
+    shell: [3, 14]
+`,
+		},
+		"yaml: invalid 'defaults.run.working-directory' value": {
+			yaml: `
+defaults:
+  run:
+    working-directory: [42]
+`,
+		},
+		"yaml: invalid 'env' value": {
+			yaml: `
+env: [3, 14]
 `,
 		},
 		"yaml: invalid 'jobs' value": {
@@ -516,11 +583,221 @@ jobs:
     - bar
 `,
 		},
+		"yaml: invalid job 'continue-on-error' value": {
+			yaml: `
+jobs:
+  example:
+    continue-on-error: foobar
+`,
+		},
+		"yaml: invalid job 'timeout-minutes' value": {
+			yaml: `
+jobs:
+  example:
+    timeout-minutes: foobar
+`,
+		},
+		"yaml: invalid job 'if' value": {
+			yaml: `
+jobs:
+  example:
+    if: [3, 14]
+`,
+		},
+		"yaml: invalid job 'needs' value": {
+			yaml: `
+jobs:
+  example:
+    needs: foobar
+`,
+		},
+		"yaml: invalid job 'concurrency' value": {
+			yaml: `
+jobs:
+  example:
+    concurrency: [3, 14]
+`,
+		},
+		"yaml: invalid job 'concurrency.cancel-in-progress' value": {
+			yaml: `
+jobs:
+  example:
+    concurrency:
+      cancel-in-progress: foobar
+`,
+		},
+		"yaml: invalid job 'concurrency.group' value": {
+			yaml: `
+jobs:
+  example:
+    concurrency:
+      group: [42]
+`,
+		},
+		"yaml: invalid job 'defaults' value": {
+			yaml: `
+jobs:
+  example:
+    defaults: foobar
+`,
+		},
+		"yaml: invalid job 'defaults.run' value": {
+			yaml: `
+jobs:
+  example:
+    defaults:
+      run: 14
+`,
+		},
+		"yaml: invalid job 'defaults.run.shell' value": {
+			yaml: `
+jobs:
+  example:
+     defaults:
+       run:
+         shell: [3, 14]
+`,
+		},
+		"yaml: invalid job 'defaults.run.working-directory' value": {
+			yaml: `
+jobs:
+  example:
+    defaults:
+      run:
+        working-directory: [42]
+`,
+		},
+		"yaml: invalid job 'services' value": {
+			yaml: `
+jobs:
+  example:
+    services: 42
+`,
+		},
+		"yaml: invalid job 'services.[*]' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example: 3.14
+`,
+		},
+		"yaml: invalid job 'services.[*].image' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example:
+        image: [3, 14]
+`,
+		},
+		"yaml: invalid job 'services.[*].credentials' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example:
+        credentials: foobar
+`,
+		},
+		"yaml: invalid job 'services.[*].credentials.username' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example:
+        credentials:
+          username: ["foo", "bar"]
+`,
+		},
+		"yaml: invalid job 'services.[*].credentials.password' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example:
+        credentials:
+          password:
+            foo: bar
+`,
+		},
+		"yaml: invalid job 'services.[*].env' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example:
+        env: foobar
+`,
+		},
+		"yaml: invalid job 'services.[*].ports' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example:
+        ports: foobar
+`,
+		},
+		"yaml: invalid job 'services.[*].volumes' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example:
+        volumes: foobar
+`,
+		},
+		"yaml: invalid job 'services.[*].options' value": {
+			yaml: `
+jobs:
+  example:
+    services:
+      example:
+        options: [3, 14]
+`,
+		},
+		"yaml: invalid job 'outputs' value": {
+			yaml: `
+jobs:
+  example:
+    outputs: [3, 14]
+`,
+		},
+		"yaml: invalid job 'permissions' value": {
+			yaml: `
+jobs:
+  example:
+    permissions: [3, 14]
+`,
+		},
+		"yaml: invalid job 'env' value": {
+			yaml: `
+jobs:
+  example:
+    env: foobar
+`,
+		},
 		"yaml: invalid job 'steps' value": {
 			yaml: `
 jobs:
   example:
     steps: 42
+`,
+		},
+		"yaml: invalid job 'uses' value": {
+			yaml: `
+jobs:
+  example:
+    uses:
+      - name: actions/checkout@v4
+`,
+		},
+		"yaml: invalid job 'with' value": {
+			yaml: `
+jobs:
+  example:
+    with: foobar
 `,
 		},
 	}
@@ -597,18 +874,18 @@ func checkWorkflow(t *testing.T, got, want *Workflow) {
 	t.Helper()
 
 	if got, want := got.Name, want.Name; got != want {
-		t.Errorf("Unexpected name (got %q, want %q)", got, want)
+		t.Errorf("Unexpected workflow name (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.RunName, want.RunName; got != want {
-		t.Errorf("Unexpected run-name (got %q, want %q)", got, want)
+		t.Errorf("Unexpected workflow run-name (got %q, want %q)", got, want)
 	}
 
-	checkConcurrency(t, got.Concurrency, want.Concurrency)
-	checkDefaults(t, got.Defaults, want.Defaults)
-	checkPermissions(t, got.Permissions, want.Permissions)
+	checkConcurrency(t, &got.Concurrency, &want.Concurrency)
+	checkDefaults(t, &got.Defaults, &want.Defaults)
 	checkMap(t, got.Env, want.Env)
 	checkJobs(t, got.Jobs, want.Jobs)
+	checkPermissions(t, &got.Permissions, &want.Permissions)
 }
 
 func checkJobs(t *testing.T, got, want map[string]Job) {
@@ -620,11 +897,13 @@ func checkJobs(t *testing.T, got, want map[string]Job) {
 	}
 
 	for name, got := range got {
-		if want, ok := want[name]; !ok {
+		want, ok := want[name]
+		if !ok {
 			t.Errorf("Got job named %q but it is not wanted", name)
-		} else {
-			checkJob(t, &got, &want)
+			continue
 		}
+
+		checkJob(t, &got, &want)
 	}
 
 	for name := range want {
@@ -638,37 +917,47 @@ func checkJob(t *testing.T, got, want *Job) {
 	t.Helper()
 
 	if got, want := got.Name, want.Name; got != want {
-		t.Errorf("Unexpected name (got %q, want %q)", got, want)
+		t.Errorf("Unexpected job.name (got %q, want %q)", got, want)
+	}
+
+	if got, want := got.ContinueOnError, want.ContinueOnError; got != want {
+		t.Errorf("Unexpected job.continue-on-error (got %t, want %t)", got, want)
 	}
 
 	if got, want := got.TimeoutMinutes, want.TimeoutMinutes; got != want {
-		t.Errorf("Unexpected timeout-minutes (got %d, want %d)", got, want)
+		t.Errorf("Unexpected job.timeout-minutes (got %d, want %d)", got, want)
 	}
 
 	if got, want := got.If, want.If; got != want {
-		t.Errorf("Unexpected if (got %q, want %q)", got, want)
+		t.Errorf("Unexpected job.if (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Needs, want.Needs; !slices.Equal(got, want) {
-		t.Errorf("Unexpected needs (got %q, want %q)", got, want)
+		t.Errorf("Unexpected job.needs (got %v, want %v)", got, want)
 	}
+
+	checkConcurrency(t, &got.Concurrency, &want.Concurrency)
+	checkDefaults(t, &got.Defaults, &want.Defaults)
+	checkMap(t, got.Env, want.Env)
+	checkEnvironment(t, &got.Environment, &want.Environment)
+	checkMap(t, got.Outputs, want.Outputs)
+	checkPermissions(t, &got.Permissions, &want.Permissions)
+	checkServices(t, got.Services, want.Services)
+
+	/* step-based job */
+
+	checkSteps(t, got.Steps, want.Steps)
+
+	/* uses-based job */
 
 	if got, want := got.Uses, want.Uses; got != want {
-		t.Errorf("Unexpected uses (got %q, want %q)", got, want)
+		t.Errorf("Unexpected job.uses (got %q, want %q)", got, want)
 	}
 
-	checkConcurrency(t, got.Concurrency, want.Concurrency)
-	checkDefaults(t, got.Defaults, want.Defaults)
-	checkMap(t, got.Env, want.Env)
-	checkEnvironment(t, got.Environment, want.Environment)
-	checkMap(t, got.Outputs, want.Outputs)
-	checkPermissions(t, got.Permissions, want.Permissions)
-	checkServices(t, got.Services, want.Services)
-	checkSteps(t, got.Steps, want.Steps)
 	checkMap(t, got.With, want.With)
 }
 
-func checkConcurrency(t *testing.T, got, want Concurrency) {
+func checkConcurrency(t *testing.T, got, want *Concurrency) {
 	t.Helper()
 
 	if got, want := got.CancelInProgress, want.CancelInProgress; got != want {
@@ -680,7 +969,7 @@ func checkConcurrency(t *testing.T, got, want Concurrency) {
 	}
 }
 
-func checkDefaults(t *testing.T, got, want Defaults) {
+func checkDefaults(t *testing.T, got, want *Defaults) {
 	t.Helper()
 
 	if got, want := got.Run.Shell, want.Run.Shell; got != want {
@@ -692,7 +981,7 @@ func checkDefaults(t *testing.T, got, want Defaults) {
 	}
 }
 
-func checkEnvironment(t *testing.T, got, want Environment) {
+func checkEnvironment(t *testing.T, got, want *Environment) {
 	t.Helper()
 
 	if got, want := got.Name, want.Name; got != want {
@@ -704,7 +993,7 @@ func checkEnvironment(t *testing.T, got, want Environment) {
 	}
 }
 
-func checkPermissions(t *testing.T, got, want Permissions) {
+func checkPermissions(t *testing.T, got, want *Permissions) {
 	t.Helper()
 
 	if got, want := got.Actions, want.Actions; got != want {
@@ -712,59 +1001,55 @@ func checkPermissions(t *testing.T, got, want Permissions) {
 	}
 
 	if got, want := got.Attestations, want.Attestations; got != want {
-		t.Errorf("Unexpected permission for 'attestations' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.attestations (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Checks, want.Checks; got != want {
-		t.Errorf("Unexpected permission for 'checks' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.checks (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Contents, want.Contents; got != want {
-		t.Errorf("Unexpected permission for 'contents' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.contents (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Deployments, want.Deployments; got != want {
-		t.Errorf("Unexpected permission for 'deployments' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.deployments (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Discussions, want.Discussions; got != want {
-		t.Errorf("Unexpected permission for 'discussions' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.discussions (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.IdToken, want.IdToken; got != want {
-		t.Errorf("Unexpected permission for 'id-token' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.id-token (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Issues, want.Issues; got != want {
-		t.Errorf("Unexpected permission for 'issues' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.issues (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Models, want.Models; got != want {
-		t.Errorf("Unexpected permission for 'models' (got %q, want %q)", got, want)
-	}
-
-	if got, want := got.Issues, want.Issues; got != want {
-		t.Errorf("Unexpected permission for 'issues' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.models (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Packages, want.Packages; got != want {
-		t.Errorf("Unexpected permission for 'packages' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.packages (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Pages, want.Pages; got != want {
-		t.Errorf("Unexpected permission for 'pages' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.pages (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.PullRequests, want.PullRequests; got != want {
-		t.Errorf("Unexpected permission for 'pull-requests' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.pull-requests (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.SecurityEvents, want.SecurityEvents; got != want {
-		t.Errorf("Unexpected permission for 'security-events' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.security-events (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Statuses, want.Statuses; got != want {
-		t.Errorf("Unexpected permission for 'statuses' (got %q, want %q)", got, want)
+		t.Errorf("Unexpected permissions.statuses (got %q, want %q)", got, want)
 	}
 }
 
@@ -772,47 +1057,47 @@ func checkServices(t *testing.T, got, want map[string]Service) {
 	t.Helper()
 
 	if got, want := len(got), len(want); got != want {
-		t.Errorf("Unexpected number of items in map (got %d, want %d)", got, want)
+		t.Errorf("Unexpected number of services (got %d, want %d)", got, want)
 		return
 	}
 
-	for k, got := range got {
-		want, ok := want[k]
+	for name, got := range got {
+		want, ok := want[name]
 		if !ok {
-			t.Errorf("Got key %q in map, but do want it", k)
+			t.Errorf("Got service named %q but it is not wanted", name)
 			continue
 		}
 
 		if got, want := got.Image, want.Image; got != want {
-			t.Errorf("Unexpected image for service %q (got %q, want %q)", k, got, want)
+			t.Errorf("Unexpected image for service %q (got %q, want %q)", name, got, want)
 		}
 
 		if got, want := got.Credentials.Username, want.Credentials.Username; got != want {
-			t.Errorf("Unexpected credential username for service %q (got %q, want %q)", k, got, want)
+			t.Errorf("Unexpected credentials.username for service %q (got %q, want %q)", name, got, want)
 		}
 
 		if got, want := got.Credentials.Password, want.Credentials.Password; got != want {
-			t.Errorf("Unexpected credential password for service %q (got %q, want %q)", k, got, want)
+			t.Errorf("Unexpected credentials.password for service %q (got %q, want %q)", name, got, want)
 		}
 
 		if got, want := got.Ports, want.Ports; !slices.Equal(got, want) {
-			t.Errorf("Unexpected ports for service %q (got %v, want %v)", k, got, want)
+			t.Errorf("Unexpected ports for service %q (got %v, want %v)", name, got, want)
 		}
 
 		if got, want := got.Volumes, want.Volumes; !slices.Equal(got, want) {
-			t.Errorf("Unexpected volumes for service %q (got %v, want %v)", k, got, want)
+			t.Errorf("Unexpected volumes for service %q (got %v, want %v)", name, got, want)
 		}
 
 		if got, want := got.Options, want.Options; got != want {
-			t.Errorf("Unexpected options for service %q (got %q, want %q)", k, got, want)
+			t.Errorf("Unexpected options for service %q (got %q, want %q)", name, got, want)
 		}
 
 		checkMap(t, got.Env, want.Env)
 	}
 
-	for k := range want {
-		if _, ok := got[k]; !ok {
-			t.Errorf("Want key %q in map, but it is not present", k)
+	for name := range want {
+		if _, ok := got[name]; !ok {
+			t.Errorf("Want service named %q but it is not present", name)
 		}
 	}
 }

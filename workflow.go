@@ -19,7 +19,7 @@ type Workflow struct {
 	Jobs        map[string]Job    `yaml:"jobs"`
 }
 
-// Job is a model of a workflow job.
+// Job is a model of a GitHub Actions workflow job.
 type Job struct {
 	Name            string             `yaml:"name,omitempty"`
 	Environment     Environment        `yaml:"environment,omitempty"`
@@ -27,8 +27,8 @@ type Job struct {
 	TimeoutMinutes  int                `yaml:"timeout-minutes,omitempty"`
 	If              string             `yaml:"if,omitempty"`
 	Needs           []string           `yaml:"needs,omitempty"`
-	Defaults        Defaults           `yaml:"defaults,omitempty"`
 	Concurrency     Concurrency        `yaml:"concurrency,omitempty"`
+	Defaults        Defaults           `yaml:"defaults,omitempty"`
 	Services        map[string]Service `yaml:"services,omitempty"`
 	Outputs         map[string]string  `yaml:"outputs,omitempty"`
 	Permissions     Permissions        `yaml:"permissions,omitempty"`
@@ -55,6 +55,7 @@ type Defaults struct {
 	Run DefaultsRun `yaml:"run,omitempty"`
 }
 
+// DefaultsRun is a model of a GitHub Actions `defaults.run:` object.
 type DefaultsRun struct {
 	Shell            string `yaml:"shell,omitempty"`
 	WorkingDirectory string `yaml:"working-directory,omitempty"`
@@ -151,7 +152,9 @@ func (p *Permissions) UnmarshalYAML(n *yaml.Node) error {
 		}
 	case yaml.MappingNode:
 		var perms map[string]string
-		_ = n.Decode(&perms)
+		if err := n.Decode(&perms); err != nil {
+			return err
+		}
 
 		all("none")
 		if v, ok := perms["actions"]; ok {
@@ -277,7 +280,7 @@ func (p Permissions) MarshalYAML() (interface{}, error) {
 	return n, nil
 }
 
-// Permissions is a model of a GitHub Actions `services:` object.
+// Service is a model of a GitHub Actions `services:` object.
 type Service struct {
 	Image       string             `yaml:"image"`
 	Credentials ServiceCredentials `yaml:"credentials,omitempty"`
@@ -287,7 +290,7 @@ type Service struct {
 	Options     string             `yaml:"options,omitempty"`
 }
 
-// Permissions is a model of a GitHub Actions `services.credentials:` object.
+// ServiceCredentials is a model of a GitHub Actions `services.credentials:` object.
 type ServiceCredentials struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
