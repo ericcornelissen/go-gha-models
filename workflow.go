@@ -21,18 +21,18 @@ type Workflow struct {
 
 // Job is a model of a workflow job.
 type Job struct {
-	Name            string            `yaml:"name,omitempty"`
-	RunsOn          string            `yaml:"runs-on,omitempty"`
-	Environment     Environment       `yaml:"environment,omitempty"`
-	ContinueOnError bool              `yaml:"continue-on-error,omitempty"`
-	TimeoutMinutes  int               `yaml:"timeout-minutes,omitempty"`
-	If              string            `yaml:"if,omitempty"`
-	Needs           []string          `yaml:"needs,omitempty"`
-	Defaults        Defaults          `yaml:"defaults,omitempty"`
-	Outputs         map[string]string `yaml:"outputs,omitempty"`
-	Concurrency     Concurrency       `yaml:"concurrency,omitempty"`
-	Permissions     Permissions       `yaml:"permissions,omitempty"`
-	Env             map[string]string `yaml:"env,omitempty"`
+	Name            string             `yaml:"name,omitempty"`
+	Environment     Environment        `yaml:"environment,omitempty"`
+	ContinueOnError bool               `yaml:"continue-on-error,omitempty"`
+	TimeoutMinutes  int                `yaml:"timeout-minutes,omitempty"`
+	If              string             `yaml:"if,omitempty"`
+	Needs           []string           `yaml:"needs,omitempty"`
+	Defaults        Defaults           `yaml:"defaults,omitempty"`
+	Concurrency     Concurrency        `yaml:"concurrency,omitempty"`
+	Services        map[string]Service `yaml:"services,omitempty"`
+	Outputs         map[string]string  `yaml:"outputs,omitempty"`
+	Permissions     Permissions        `yaml:"permissions,omitempty"`
+	Env             map[string]string  `yaml:"env,omitempty"`
 
 	/* step-based job */
 
@@ -40,9 +40,8 @@ type Job struct {
 
 	/* uses-based job */
 
-	Uses    string            `yaml:"uses,omitempty"`
-	With    map[string]string `yaml:"with,omitempty"`
-	Secrets map[string]string `yaml:"secrets,omitempty"`
+	Uses string            `yaml:"uses,omitempty"`
+	With map[string]string `yaml:"with,omitempty"`
 }
 
 // Concurrency is a model of a GitHub Actions `concurrency:` object.
@@ -276,6 +275,22 @@ func (p Permissions) MarshalYAML() (interface{}, error) {
 	}
 
 	return n, nil
+}
+
+// Permissions is a model of a GitHub Actions `services:` object.
+type Service struct {
+	Image       string             `yaml:"image"`
+	Credentials ServiceCredentials `yaml:"credentials,omitempty"`
+	Env         map[string]string  `yaml:"env,omitempty"`
+	Ports       []int              `yaml:"ports,omitempty"`
+	Volumes     []string           `yaml:"volumes,omitempty"`
+	Options     string             `yaml:"options,omitempty"`
+}
+
+// Permissions is a model of a GitHub Actions `services.credentials:` object.
+type ServiceCredentials struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // ParseWorkflow parses a GitHub Actions workflow into a [Workflow].

@@ -76,7 +76,6 @@ jobs: {}
 jobs:
     job1:
         name: Example
-        runs-on: ubuntu-latest
         environment: foo-env
         continue-on-error: true
         timeout-minutes: 60
@@ -87,12 +86,25 @@ jobs:
             run:
                 shell: bash
                 working-directory: ./scripts
-        outputs:
-            output1: ${{ steps.step1.outputs.test }}
-            output2: ${{ steps.step2.outputs.test }}
         concurrency:
             cancel-in-progress: true
             group: group B
+        services:
+            nginx:
+                image: nginx
+                credentials:
+                    username: foo
+                    password: bar
+                env:
+                    FOO: bar
+                ports:
+                    - 80
+                volumes:
+                    - my_docker_volume:/volume_mount
+                options: --cpus 1
+        outputs:
+            output1: ${{ steps.step1.outputs.test }}
+            output2: ${{ steps.step2.outputs.test }}
         permissions:
             packages: write
             statuses: read
@@ -102,32 +114,58 @@ jobs:
         environment:
             name: bar-env
             url: https://example.com
+        defaults:
+            run:
+                shell: bash
+        permissions:
+            attestations: write
+            models: read
 `,
 			model: Workflow{
 				Jobs: map[string]Job{
 					"job1": {
-						Name:   "Example",
-						RunsOn: "ubuntu-latest",
+						Name: "Example",
 						Environment: Environment{
 							Name: "foo-env",
 						},
 						ContinueOnError: true,
 						TimeoutMinutes:  60,
 						If:              "foo == 'bar'",
-						Needs:           []string{"job2"},
+						Needs: []string{
+							"job2",
+						},
 						Defaults: Defaults{
 							Run: DefaultsRun{
 								Shell:            "bash",
 								WorkingDirectory: "./scripts",
 							},
 						},
-						Outputs: map[string]string{
-							"output1": "${{ steps.step1.outputs.test }}",
-							"output2": "${{ steps.step2.outputs.test }}",
-						},
 						Concurrency: Concurrency{
 							CancelInProgress: true,
 							Group:            "group B",
+						},
+						Services: map[string]Service{
+							"nginx": {
+								Image: "nginx",
+								Credentials: ServiceCredentials{
+									Username: "foo",
+									Password: "bar",
+								},
+								Env: map[string]string{
+									"FOO": "bar",
+								},
+								Ports: []int{
+									80,
+								},
+								Volumes: []string{
+									"my_docker_volume:/volume_mount",
+								},
+								Options: "--cpus 1",
+							},
+						},
+						Outputs: map[string]string{
+							"output1": "${{ steps.step1.outputs.test }}",
+							"output2": "${{ steps.step2.outputs.test }}",
 						},
 						Permissions: Permissions{
 							Actions:        "none",
@@ -152,6 +190,91 @@ jobs:
 							Name: "bar-env",
 							Url:  "https://example.com",
 						},
+						Defaults: Defaults{
+							Run: DefaultsRun{
+								Shell: "bash",
+							},
+						},
+						Permissions: Permissions{
+							Actions:        "none",
+							Attestations:   "write",
+							Checks:         "none",
+							Contents:       "none",
+							Deployments:    "none",
+							Discussions:    "none",
+							IdToken:        "none",
+							Issues:         "none",
+							Models:         "read",
+							Packages:       "none",
+							Pages:          "none",
+							PullRequests:   "none",
+							SecurityEvents: "none",
+							Statuses:       "none",
+						},
+					},
+				},
+			},
+		},
+		"Job with steps": {
+			yaml: `
+jobs:
+    example:
+        name: Example job
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+              with:
+                persist-credentials: "false"
+            - uses: actions/setup-node@v3
+              with:
+                node-version: "20"
+            - name: Echo value (run)
+              run: echo '${{ inputs.value }}'
+            - name: Echo value (uses)
+              uses: actions/github-script@v6
+              with:
+                script: console.log('${{ inputs.value }}')
+
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"example": {
+						Name: "Example job",
+						Steps: []Step{
+							{
+								Name: "Checkout repository",
+								Uses: Uses{
+									Name: "actions/checkout",
+									Ref:  "v3",
+								},
+								With: map[string]string{
+									"persist-credentials": "false",
+								},
+							},
+							{
+								Uses: Uses{
+									Name: "actions/setup-node",
+									Ref:  "v3",
+								},
+								With: map[string]string{
+									"node-version": "20",
+								},
+							},
+							{
+								Name: "Echo value (run)",
+								Run:  "echo '${{ inputs.value }}'",
+							},
+							{
+								Name: "Echo value (uses)",
+								Uses: Uses{
+									Name: "actions/github-script",
+									Ref:  "v6",
+								},
+								With: map[string]string{
+									"script": "console.log('${{ inputs.value }}')",
+								},
+							},
+						},
 					},
 				},
 			},
@@ -163,15 +286,12 @@ jobs:
         uses: octo-org/example-repo/.github/workflows/called-workflow.yml@main
         with:
             foo: bar
-        secrets:
-            foo: baz
 `,
 			model: Workflow{
 				Jobs: map[string]Job{
 					"example": {
-						Uses:    "octo-org/example-repo/.github/workflows/called-workflow.yml@main",
-						With:    map[string]string{"foo": "bar"},
-						Secrets: map[string]string{"foo": "baz"},
+						Uses: "octo-org/example-repo/.github/workflows/called-workflow.yml@main",
+						With: map[string]string{"foo": "bar"},
 					},
 				},
 			},
@@ -458,16 +578,9 @@ jobs:
 		`
 jobs:
   example:
-    name: Example
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 1
-    - name: Echo value
-      uses: actions/github-script@v6
-      with:
-        script: console.log('${{ inputs.value }}')
+    uses: octo-org/example-repo/.github/workflows/called-workflow.yml@main
+    with:
+      foo: bar
 `,
 	}
 
@@ -528,10 +641,6 @@ func checkJob(t *testing.T, got, want *Job) {
 		t.Errorf("Unexpected name (got %q, want %q)", got, want)
 	}
 
-	if got, want := got.RunsOn, want.RunsOn; got != want {
-		t.Errorf("Unexpected runs-on (got %q, want %q)", got, want)
-	}
-
 	if got, want := got.TimeoutMinutes, want.TimeoutMinutes; got != want {
 		t.Errorf("Unexpected timeout-minutes (got %d, want %d)", got, want)
 	}
@@ -554,12 +663,14 @@ func checkJob(t *testing.T, got, want *Job) {
 	checkEnvironment(t, got.Environment, want.Environment)
 	checkMap(t, got.Outputs, want.Outputs)
 	checkPermissions(t, got.Permissions, want.Permissions)
+	checkServices(t, got.Services, want.Services)
 	checkSteps(t, got.Steps, want.Steps)
 	checkMap(t, got.With, want.With)
-	checkMap(t, got.Secrets, want.Secrets)
 }
 
 func checkConcurrency(t *testing.T, got, want Concurrency) {
+	t.Helper()
+
 	if got, want := got.CancelInProgress, want.CancelInProgress; got != want {
 		t.Errorf("Unexpected concurrency.cancel-in-progress (got %t, want %t)", got, want)
 	}
@@ -570,6 +681,8 @@ func checkConcurrency(t *testing.T, got, want Concurrency) {
 }
 
 func checkDefaults(t *testing.T, got, want Defaults) {
+	t.Helper()
+
 	if got, want := got.Run.Shell, want.Run.Shell; got != want {
 		t.Errorf("Unexpected defaults.run.shell (got %q, want %q)", got, want)
 	}
@@ -580,6 +693,8 @@ func checkDefaults(t *testing.T, got, want Defaults) {
 }
 
 func checkEnvironment(t *testing.T, got, want Environment) {
+	t.Helper()
+
 	if got, want := got.Name, want.Name; got != want {
 		t.Errorf("Unexpected environment.name (got %q, want %q)", got, want)
 	}
@@ -590,6 +705,8 @@ func checkEnvironment(t *testing.T, got, want Environment) {
 }
 
 func checkPermissions(t *testing.T, got, want Permissions) {
+	t.Helper()
+
 	if got, want := got.Actions, want.Actions; got != want {
 		t.Errorf("Unexpected permission for 'actions' (got %q, want %q)", got, want)
 	}
@@ -648,5 +765,54 @@ func checkPermissions(t *testing.T, got, want Permissions) {
 
 	if got, want := got.Statuses, want.Statuses; got != want {
 		t.Errorf("Unexpected permission for 'statuses' (got %q, want %q)", got, want)
+	}
+}
+
+func checkServices(t *testing.T, got, want map[string]Service) {
+	t.Helper()
+
+	if got, want := len(got), len(want); got != want {
+		t.Errorf("Unexpected number of items in map (got %d, want %d)", got, want)
+		return
+	}
+
+	for k, got := range got {
+		want, ok := want[k]
+		if !ok {
+			t.Errorf("Got key %q in map, but do want it", k)
+			continue
+		}
+
+		if got, want := got.Image, want.Image; got != want {
+			t.Errorf("Unexpected image for service %q (got %q, want %q)", k, got, want)
+		}
+
+		if got, want := got.Credentials.Username, want.Credentials.Username; got != want {
+			t.Errorf("Unexpected credential username for service %q (got %q, want %q)", k, got, want)
+		}
+
+		if got, want := got.Credentials.Password, want.Credentials.Password; got != want {
+			t.Errorf("Unexpected credential password for service %q (got %q, want %q)", k, got, want)
+		}
+
+		if got, want := got.Ports, want.Ports; !slices.Equal(got, want) {
+			t.Errorf("Unexpected ports for service %q (got %v, want %v)", k, got, want)
+		}
+
+		if got, want := got.Volumes, want.Volumes; !slices.Equal(got, want) {
+			t.Errorf("Unexpected volumes for service %q (got %v, want %v)", k, got, want)
+		}
+
+		if got, want := got.Options, want.Options; got != want {
+			t.Errorf("Unexpected options for service %q (got %q, want %q)", k, got, want)
+		}
+
+		checkMap(t, got.Env, want.Env)
+	}
+
+	for k := range want {
+		if _, ok := got[k]; !ok {
+			t.Errorf("Want key %q in map, but it is not present", k)
+		}
 	}
 }
