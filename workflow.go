@@ -29,6 +29,7 @@ type Job struct {
 	Needs           []string           `yaml:"needs,omitempty"`
 	Concurrency     Concurrency        `yaml:"concurrency,omitempty"`
 	Defaults        Defaults           `yaml:"defaults,omitempty"`
+	Strategy        Strategy           `yaml:"strategy,omitempty"`
 	Services        map[string]Service `yaml:"services,omitempty"`
 	Outputs         map[string]string  `yaml:"outputs,omitempty"`
 	Permissions     Permissions        `yaml:"permissions,omitempty"`
@@ -72,13 +73,13 @@ func (e *Environment) UnmarshalYAML(n *yaml.Node) error {
 	case yaml.ScalarNode:
 		e.Name = n.Value
 	case yaml.MappingNode:
-		var perms map[string]string
-		_ = n.Decode(&perms)
+		var env map[string]string
+		_ = n.Decode(&env)
 
-		if v, ok := perms["name"]; ok {
+		if v, ok := env["name"]; ok {
 			e.Name = v
 		}
-		if v, ok := perms["url"]; ok {
+		if v, ok := env["url"]; ok {
 			e.Url = v
 		}
 	default:
@@ -294,6 +295,13 @@ type Service struct {
 type ServiceCredentials struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
+}
+
+// Strategy is a model of a GitHub Actions `strategy:` object.
+type Strategy struct {
+	Matrix      map[string]any `yaml:"matrix,omitempty"`
+	FailFast    bool           `yaml:"fail-fast,omitempty"`
+	MaxParallel int            `yaml:"max-parallel,omitempty"`
 }
 
 // ParseWorkflow parses a GitHub Actions workflow into a [Workflow].

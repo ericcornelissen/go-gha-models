@@ -4,6 +4,7 @@ package gha
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -89,6 +90,9 @@ jobs:
             run:
                 shell: bash
                 working-directory: ./scripts
+        strategy:
+            fail-fast: true
+            max-parallel: 10
         services:
             nginx:
                 image: nginx
@@ -134,15 +138,19 @@ jobs:
 						Needs: []string{
 							"job2",
 						},
+						Concurrency: Concurrency{
+							CancelInProgress: true,
+							Group:            "group B",
+						},
 						Defaults: Defaults{
 							Run: DefaultsRun{
 								Shell:            "bash",
 								WorkingDirectory: "./scripts",
 							},
 						},
-						Concurrency: Concurrency{
-							CancelInProgress: true,
-							Group:            "group B",
+						Strategy: Strategy{
+							FailFast:    true,
+							MaxParallel: 10,
 						},
 						Services: map[string]Service{
 							"nginx": {
@@ -332,6 +340,40 @@ jobs:
 								Uses: Uses{
 									Name: "actions/checkout",
 									Ref:  "v4",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix": {
+			yaml: `
+jobs:
+    matrix:
+        strategy:
+            matrix:
+                os:
+                    - ubuntu-22.04
+                    - ubuntu 24.04
+                version:
+                    - 10
+                    - 12
+                    - 14
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"matrix": {
+						Strategy: Strategy{
+							Matrix: map[string]any{
+								"os": []any{
+									"ubuntu-22.04",
+									"ubuntu 24.04",
+								},
+								"version": []any{
+									10,
+									12,
+									14,
 								},
 							},
 						},
@@ -943,6 +985,7 @@ func checkJob(t *testing.T, got, want *Job) {
 	checkMap(t, got.Outputs, want.Outputs)
 	checkPermissions(t, &got.Permissions, &want.Permissions)
 	checkServices(t, got.Services, want.Services)
+	checkStrategy(t, &got.Strategy, &want.Strategy)
 
 	/* step-based job */
 
@@ -1099,5 +1142,21 @@ func checkServices(t *testing.T, got, want map[string]Service) {
 		if _, ok := got[name]; !ok {
 			t.Errorf("Want service named %q but it is not present", name)
 		}
+	}
+}
+
+func checkStrategy(t *testing.T, got, want *Strategy) {
+	t.Helper()
+
+	if got, want := got.Matrix, want.Matrix; !reflect.DeepEqual(got, want) {
+		t.Errorf("Strategy matrices are not equal (got %+v, want %+v)", got, want)
+	}
+
+	if got, want := got.FailFast, want.FailFast; got != want {
+		t.Errorf("Unexpected fail-fast for strategy (got %t, want %t)", got, want)
+	}
+
+	if got, want := got.MaxParallel, want.MaxParallel; got != want {
+		t.Errorf("Unexpected max-parallel for strategy (got %d, want %d)", got, want)
 	}
 }
