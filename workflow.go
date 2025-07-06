@@ -299,9 +299,63 @@ type ServiceCredentials struct {
 
 // Strategy is a model of a GitHub Actions `strategy:` object.
 type Strategy struct {
-	Matrix      map[string]any `yaml:"matrix,omitempty"`
-	FailFast    bool           `yaml:"fail-fast,omitempty"`
-	MaxParallel int            `yaml:"max-parallel,omitempty"`
+	Matrix      Matrix `yaml:"matrix,omitempty"`
+	FailFast    bool   `yaml:"fail-fast,omitempty"`
+	MaxParallel int    `yaml:"max-parallel,omitempty"`
+}
+
+// Matrix is a model of a GitHub Actions `strategy.matrix:` object.
+type Matrix struct {
+	Matrix  map[string]any
+	Include map[string]any
+	Exclude map[string]any
+}
+
+func (m *Matrix) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind != yaml.MappingNode {
+		return fmt.Errorf("invalid matrix %q", n.Value)
+	}
+
+	var matrix map[string]any
+	_ = n.Decode(&matrix)
+
+	if include, ok := matrix["include"]; ok {
+		tmp, ok := include.(map[string]any)
+		if !ok {
+			return fmt.Errorf("invalid matrix.include %q", n.Value)
+		}
+
+		m.Include = tmp
+		delete(matrix, "include")
+	}
+
+	if exclude, ok := matrix["exclude"]; ok {
+		tmp, ok := exclude.(map[string]any)
+		if !ok {
+			return fmt.Errorf("invalid matrix.include %q", n.Value)
+		}
+
+		m.Exclude = tmp
+		delete(matrix, "exclude")
+	}
+
+	m.Matrix = matrix
+
+	return nil
+}
+
+func (m Matrix) MarshalYAML() (interface{}, error) {
+	matrix := m.Matrix
+	if include := m.Include; len(include) != 0 {
+		matrix["include"] = include
+	}
+	if exclude := m.Exclude; len(exclude) != 0 {
+		matrix["exclude"] = exclude
+	}
+
+	n := yaml.Node{}
+	err := n.Encode(matrix)
+	return n, err
 }
 
 // ParseWorkflow parses a GitHub Actions workflow into a [Workflow].

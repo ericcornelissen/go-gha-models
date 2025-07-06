@@ -365,15 +365,17 @@ jobs:
 				Jobs: map[string]Job{
 					"matrix": {
 						Strategy: Strategy{
-							Matrix: map[string]any{
-								"os": []any{
-									"ubuntu-22.04",
-									"ubuntu 24.04",
-								},
-								"version": []any{
-									10,
-									12,
-									14,
+							Matrix: Matrix{
+								Matrix: map[string]any{
+									"os": []any{
+										"ubuntu-22.04",
+										"ubuntu 24.04",
+									},
+									"version": []any{
+										10,
+										12,
+										14,
+									},
 								},
 							},
 						},
@@ -1148,7 +1150,15 @@ func checkServices(t *testing.T, got, want map[string]Service) {
 func checkStrategy(t *testing.T, got, want *Strategy) {
 	t.Helper()
 
-	if got, want := got.Matrix, want.Matrix; !reflect.DeepEqual(got, want) {
+	if got, want := got.Matrix.Matrix, want.Matrix.Matrix; !reflect.DeepEqual(got, want) {
+		t.Errorf("Strategy matrices are not equal (got %+v, want %+v)", got, want)
+	}
+
+	if got, want := got.Matrix.Include, want.Matrix.Include; !reflect.DeepEqual(got, want) {
+		t.Errorf("Strategy matrices are not equal (got %+v, want %+v)", got, want)
+	}
+
+	if got, want := got.Matrix.Exclude, want.Matrix.Exclude; !reflect.DeepEqual(got, want) {
 		t.Errorf("Strategy matrices are not equal (got %+v, want %+v)", got, want)
 	}
 
