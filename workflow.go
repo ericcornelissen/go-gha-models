@@ -341,17 +341,17 @@ func (m *Matrix) UnmarshalYAML(n *yaml.Node) error {
 	if exclude, ok := matrix["exclude"]; ok {
 		tmp, ok := exclude.([]any)
 		if !ok {
-			return fmt.Errorf("invalid matrix.include %q", n.Value)
+			return fmt.Errorf("invalid matrix.exclude %q", n.Value)
 		}
 
 		m.Exclude = make([]map[string]any, len(tmp))
 		for i, tmp := range tmp {
-			include, ok := tmp.(map[string]any)
+			exclude, ok := tmp.(map[string]any)
 			if !ok {
-				return fmt.Errorf("invalid matrix.include %q", n.Value)
+				return fmt.Errorf("invalid matrix.exclude %q", n.Value)
 			}
 
-			m.Exclude[i] = include
+			m.Exclude[i] = exclude
 		}
 
 		delete(matrix, "exclude")
