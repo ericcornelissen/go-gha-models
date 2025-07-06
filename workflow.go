@@ -307,8 +307,8 @@ type Strategy struct {
 // Matrix is a model of a GitHub Actions `strategy.matrix:` object.
 type Matrix struct {
 	Matrix  map[string]any
-	Include map[string]any
-	Exclude map[string]any
+	Include []map[string]any
+	Exclude []map[string]any
 }
 
 func (m *Matrix) UnmarshalYAML(n *yaml.Node) error {
@@ -320,32 +320,56 @@ func (m *Matrix) UnmarshalYAML(n *yaml.Node) error {
 	_ = n.Decode(&matrix)
 
 	if include, ok := matrix["include"]; ok {
-		tmp, ok := include.(map[string]any)
+		tmp, ok := include.([]any)
 		if !ok {
 			return fmt.Errorf("invalid matrix.include %q", n.Value)
 		}
 
-		m.Include = tmp
+		m.Include = make([]map[string]any, len(tmp))
+		for i, tmp := range tmp {
+			include, ok := tmp.(map[string]any)
+			if !ok {
+				return fmt.Errorf("invalid matrix.include %q", n.Value)
+			}
+
+			m.Include[i] = include
+		}
+
 		delete(matrix, "include")
 	}
 
 	if exclude, ok := matrix["exclude"]; ok {
-		tmp, ok := exclude.(map[string]any)
+		tmp, ok := exclude.([]any)
 		if !ok {
 			return fmt.Errorf("invalid matrix.include %q", n.Value)
 		}
 
-		m.Exclude = tmp
+		m.Exclude = make([]map[string]any, len(tmp))
+		for i, tmp := range tmp {
+			include, ok := tmp.(map[string]any)
+			if !ok {
+				return fmt.Errorf("invalid matrix.include %q", n.Value)
+			}
+
+			m.Exclude[i] = include
+		}
+
 		delete(matrix, "exclude")
 	}
 
-	m.Matrix = matrix
+	if len(matrix) != 0 {
+		m.Matrix = matrix
+	}
 
 	return nil
 }
 
 func (m Matrix) MarshalYAML() (interface{}, error) {
-	matrix := m.Matrix
+	matrix := make(map[string]any, len(m.Matrix))
+	for k, v := range m.Matrix {
+		matrix[k] = v
+	}
+
 	if include := m.Include; len(include) != 0 {
 		matrix["include"] = include
 	}
