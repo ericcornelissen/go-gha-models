@@ -4,6 +4,7 @@ package gha
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -89,6 +90,9 @@ jobs:
             run:
                 shell: bash
                 working-directory: ./scripts
+        strategy:
+            fail-fast: true
+            max-parallel: 10
         services:
             nginx:
                 image: nginx
@@ -134,15 +138,19 @@ jobs:
 						Needs: []string{
 							"job2",
 						},
+						Concurrency: Concurrency{
+							CancelInProgress: true,
+							Group:            "group B",
+						},
 						Defaults: Defaults{
 							Run: DefaultsRun{
 								Shell:            "bash",
 								WorkingDirectory: "./scripts",
 							},
 						},
-						Concurrency: Concurrency{
-							CancelInProgress: true,
-							Group:            "group B",
+						Strategy: Strategy{
+							FailFast:    true,
+							MaxParallel: 10,
 						},
 						Services: map[string]Service{
 							"nginx": {
@@ -332,6 +340,219 @@ jobs:
 								Uses: Uses{
 									Name: "actions/checkout",
 									Ref:  "v4",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix": {
+			yaml: `
+jobs:
+    0-one-dimensional-matrix:
+        strategy:
+            matrix:
+                version:
+                    - 10
+                    - 12
+                    - 14
+    1-two-dimensional-matrix:
+        strategy:
+            matrix:
+                os:
+                    - ubuntu-22.04
+                    - ubuntu 24.04
+                version:
+                    - 10
+                    - 12
+                    - 14
+    2-nested-values-matrix:
+        strategy:
+            matrix:
+                node:
+                    - version: 14
+                    - env: NODE_OPTIONS=--openssl-legacy-provider
+                      version: 20
+                os:
+                    - ubuntu-latest
+                    - macos-latest
+    3-context-matrix:
+        strategy:
+            matrix:
+                version: ${{ github.event.client_payload.versions }}
+    4-matrix-include:
+        strategy:
+            matrix:
+                animal:
+                    - cat
+                    - dog
+                fruit:
+                    - apple
+                    - pear
+                include:
+                    - color: green
+                    - animal: cat
+                      color: pink
+                    - fruit: apple
+                      shape: circle
+                    - fruit: banana
+                    - animal: cat
+                      fruit: banana
+    5-expanding-configuration:
+        strategy:
+            matrix:
+                include:
+                    - node: 16
+                      npm: 6
+                      os: windows-latest
+                node:
+                    - 14
+                    - 16
+                os:
+                    - windows-latest
+                    - ubuntu-latest
+    6-include-only:
+        strategy:
+            matrix:
+                include:
+                    - datacenter: site-a
+                      site: production
+                    - datacenter: site-b
+                      site: staging
+    7-exclude:
+        strategy:
+            matrix:
+                environment:
+                    - staging
+                    - production
+                exclude:
+                    - environment: production
+                      os: macos-latest
+                      version: 12
+                    - os: windows-latest
+                      version: 16
+                os:
+                    - macos-latest
+                    - windows-latest
+                version:
+                    - 12
+                    - 14
+                    - 16
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"0-one-dimensional-matrix": {
+						Strategy: Strategy{
+							Matrix: Matrix{
+								Matrix: map[string]any{
+									"version": []any{
+										10,
+										12,
+										14,
+									},
+								},
+							},
+						},
+					},
+					"1-two-dimensional-matrix": {
+						Strategy: Strategy{
+							Matrix: Matrix{
+								Matrix: map[string]any{
+									"os": []any{
+										"ubuntu-22.04",
+										"ubuntu 24.04",
+									},
+									"version": []any{
+										10,
+										12,
+										14,
+									},
+								},
+							},
+						},
+					},
+					"2-nested-values-matrix": {
+						Strategy: Strategy{
+							Matrix: Matrix{
+								Matrix: map[string]any{
+									"os": []any{
+										"ubuntu-latest",
+										"macos-latest",
+									},
+									"node": []any{
+										map[string]any{
+											"version": 14,
+										},
+										map[string]any{
+											"version": 20,
+											"env":     "NODE_OPTIONS=--openssl-legacy-provider",
+										},
+									},
+								},
+							},
+						},
+					},
+					"3-context-matrix": {
+						Strategy: Strategy{
+							Matrix: Matrix{
+								Matrix: map[string]any{
+									"version": "${{ github.event.client_payload.versions }}",
+								},
+							},
+						},
+					},
+					"4-matrix-include": {
+						Strategy: Strategy{
+							Matrix: Matrix{
+								Matrix: map[string]any{
+									"animal": []any{"cat", "dog"},
+									"fruit":  []any{"apple", "pear"},
+								},
+								Include: []map[string]any{
+									{"color": "green"},
+									{"animal": "cat", "color": "pink"},
+									{"fruit": "apple", "shape": "circle"},
+									{"fruit": "banana"},
+									{"animal": "cat", "fruit": "banana"},
+								},
+							},
+						},
+					},
+					"5-expanding-configuration": {
+						Strategy: Strategy{
+							Matrix: Matrix{
+								Matrix: map[string]any{
+									"os":   []any{"windows-latest", "ubuntu-latest"},
+									"node": []any{14, 16},
+								},
+								Include: []map[string]any{
+									{"node": 16, "npm": 6, "os": "windows-latest"},
+								},
+							},
+						},
+					},
+					"6-include-only": {
+						Strategy: Strategy{
+							Matrix: Matrix{
+								Include: []map[string]any{
+									{"datacenter": "site-a", "site": "production"},
+									{"datacenter": "site-b", "site": "staging"},
+								},
+							},
+						},
+					},
+					"7-exclude": {
+						Strategy: Strategy{
+							Matrix: Matrix{
+								Matrix: map[string]any{
+									"environment": []any{"staging", "production"},
+									"os":          []any{"macos-latest", "windows-latest"},
+									"version":     []any{12, 14, 16},
+								},
+								Exclude: []map[string]any{
+									{"environment": "production", "os": "macos-latest", "version": 12},
+									{"os": "windows-latest", "version": 16},
 								},
 							},
 						},
@@ -667,6 +888,68 @@ jobs:
         working-directory: [42]
 `,
 		},
+		"yaml: invalid job 'strategy.matrix' value": {
+			yaml: `
+jobs:
+  example:
+    strategy:
+      matrix: 42
+`,
+		},
+		"yaml: invalid job 'strategy.matrix.include' value": {
+			yaml: `
+jobs:
+  example:
+    strategy:
+      matrix:
+        include: 42
+`,
+		},
+		"yaml: invalid job 'strategy.matrix.include[*]' value": {
+			yaml: `
+jobs:
+  example:
+    strategy:
+      matrix:
+        include:
+          - 42
+`,
+		},
+		"yaml: invalid job 'strategy.matrix.exclude' value": {
+			yaml: `
+jobs:
+  example:
+    strategy:
+      matrix:
+        exclude: 42
+`,
+		},
+		"yaml: invalid job 'strategy.matrix.exclude[*]' value": {
+			yaml: `
+jobs:
+  example:
+    strategy:
+      matrix:
+        exclude:
+          - 42
+`,
+		},
+		"yaml: invalid job 'strategy.fail-fast' value": {
+			yaml: `
+jobs:
+  example:
+    strategy:
+      fail-fast: [42]
+`,
+		},
+		"yaml: invalid job 'strategy.max-parallel' value": {
+			yaml: `
+jobs:
+  example:
+    strategy:
+      max-parallel: [42]
+`,
+		},
 		"yaml: invalid job 'services' value": {
 			yaml: `
 jobs:
@@ -943,6 +1226,7 @@ func checkJob(t *testing.T, got, want *Job) {
 	checkMap(t, got.Outputs, want.Outputs)
 	checkPermissions(t, &got.Permissions, &want.Permissions)
 	checkServices(t, got.Services, want.Services)
+	checkStrategy(t, &got.Strategy, &want.Strategy)
 
 	/* step-based job */
 
@@ -1099,5 +1383,29 @@ func checkServices(t *testing.T, got, want map[string]Service) {
 		if _, ok := got[name]; !ok {
 			t.Errorf("Want service named %q but it is not present", name)
 		}
+	}
+}
+
+func checkStrategy(t *testing.T, got, want *Strategy) {
+	t.Helper()
+
+	if got, want := got.Matrix.Matrix, want.Matrix.Matrix; !reflect.DeepEqual(got, want) {
+		t.Errorf("Strategy matrix are not equal (got %+v, want %+v)", got, want)
+	}
+
+	if got, want := got.Matrix.Include, want.Matrix.Include; !reflect.DeepEqual(got, want) {
+		t.Errorf("Strategy matrix.include are not equal (got %+v, want %+v)", got, want)
+	}
+
+	if got, want := got.Matrix.Exclude, want.Matrix.Exclude; !reflect.DeepEqual(got, want) {
+		t.Errorf("Strategy matrix.exclude are not equal (got %+v, want %+v)", got, want)
+	}
+
+	if got, want := got.FailFast, want.FailFast; got != want {
+		t.Errorf("Unexpected fail-fast for strategy (got %t, want %t)", got, want)
+	}
+
+	if got, want := got.MaxParallel, want.MaxParallel; got != want {
+		t.Errorf("Unexpected max-parallel for strategy (got %d, want %d)", got, want)
 	}
 }
