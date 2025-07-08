@@ -64,7 +64,7 @@ func (u *Uses) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-func (u Uses) MarshalYAML() (interface{}, error) {
+func (u Uses) MarshalYAML() (any, error) {
 	if u.Name == "" && u.Ref == "" {
 		return "", nil
 	}

@@ -89,7 +89,7 @@ func (e *Environment) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-func (e Environment) MarshalYAML() (interface{}, error) {
+func (e Environment) MarshalYAML() (any, error) {
 	n := yaml.Node{}
 	if e.Url == "" {
 		n.Kind = yaml.ScalarNode
@@ -216,7 +216,7 @@ func (p *Permissions) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-func (p Permissions) MarshalYAML() (interface{}, error) {
+func (p Permissions) MarshalYAML() (any, error) {
 	all := func(s string) bool {
 		return p.Actions == s && p.Attestations == s && p.Checks == s && p.Contents == s && p.Deployments == s && p.Discussions == s && p.IdToken == s && p.Issues == s && p.Models == s && p.Packages == s && p.Pages == s && p.PullRequests == s && p.SecurityEvents == s && p.Statuses == s
 	}
@@ -364,7 +364,7 @@ func (m *Matrix) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-func (m Matrix) MarshalYAML() (interface{}, error) {
+func (m Matrix) MarshalYAML() (any, error) {
 	matrix := make(map[string]any, len(m.Matrix))
 	for k, v := range m.Matrix {
 		matrix[k] = v
