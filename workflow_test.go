@@ -702,6 +702,24 @@ jobs:
 		})
 	}
 
+	edgeCases := map[string]TestCase{
+		"non-array job.needs": {
+			yaml: `
+jobs:
+  example:
+    needs: foobar
+`,
+		},
+	}
+
+	for name, tt := range edgeCases {
+		t.Run(name, func(t *testing.T) {
+			if err := yaml.Unmarshal([]byte(tt.yaml), &tt.model); err != nil {
+				t.Fatalf("Want no error, got %#v", err)
+			}
+		})
+	}
+
 	errCases := map[string]TestCase{
 		"yaml: invalid 'name' value": {
 			yaml: `
@@ -829,7 +847,8 @@ jobs:
 			yaml: `
 jobs:
   example:
-    needs: foobar
+    needs:
+      foo: bar
 `,
 		},
 		"yaml: invalid job 'concurrency' value": {

@@ -26,7 +26,7 @@ type Job struct {
 	ContinueOnError bool               `yaml:"continue-on-error,omitempty"`
 	TimeoutMinutes  int                `yaml:"timeout-minutes,omitempty"`
 	If              string             `yaml:"if,omitempty"`
-	Needs           []string           `yaml:"needs,omitempty"`
+	Needs           Needs              `yaml:"needs,omitempty"`
 	Concurrency     Concurrency        `yaml:"concurrency,omitempty"`
 	Defaults        Defaults           `yaml:"defaults,omitempty"`
 	Strategy        Strategy           `yaml:"strategy,omitempty"`
@@ -103,6 +103,26 @@ func (e Environment) MarshalYAML() (any, error) {
 	}
 
 	return n, nil
+}
+
+type Needs []string
+
+func (l *Needs) UnmarshalYAML(n *yaml.Node) error {
+	switch n.Kind {
+	case yaml.ScalarNode:
+		*l = []string{n.Value}
+	case yaml.SequenceNode:
+		var list []string
+		if err := n.Decode(&list); err != nil {
+			return err
+		}
+
+		*l = list
+	default:
+		return fmt.Errorf("invalid job.needs %v", n.Kind)
+	}
+
+	return nil
 }
 
 // Permissions is a model of a GitHub Actions `permissions:` object.
