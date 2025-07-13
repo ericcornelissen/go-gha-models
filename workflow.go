@@ -26,7 +26,7 @@ type Job struct {
 	ContinueOnError bool               `yaml:"continue-on-error,omitempty"`
 	TimeoutMinutes  int                `yaml:"timeout-minutes,omitempty"`
 	If              string             `yaml:"if,omitempty"`
-	Needs           []string           `yaml:"needs,omitempty"`
+	Needs           Needs              `yaml:"needs,omitempty"`
 	Concurrency     Concurrency        `yaml:"concurrency,omitempty"`
 	Defaults        Defaults           `yaml:"defaults,omitempty"`
 	Strategy        Strategy           `yaml:"strategy,omitempty"`
@@ -49,6 +49,38 @@ type Job struct {
 type Concurrency struct {
 	CancelInProgress bool   `yaml:"cancel-in-progress,omitempty"`
 	Group            string `yaml:"group,omitempty"`
+}
+
+func (c *Concurrency) UnmarshalYAML(n *yaml.Node) error {
+	switch n.Kind {
+	case yaml.ScalarNode:
+		c.Group = n.Value
+	case yaml.MappingNode:
+		var concurrency map[string]any
+		_ = n.Decode(&concurrency)
+
+		if v, ok := concurrency["cancel-in-progress"]; ok {
+			v, ok := v.(bool)
+			if !ok {
+				return fmt.Errorf("invalid concurrency.cancel-in-progress %v", n.Kind)
+			}
+
+			c.CancelInProgress = v
+		}
+
+		if v, ok := concurrency["group"]; ok {
+			v, ok := v.(string)
+			if !ok {
+				return fmt.Errorf("invalid concurrency.group %v", n.Kind)
+			}
+
+			c.Group = v
+		}
+	default:
+		return fmt.Errorf("invalid concurrency %v", n.Kind)
+	}
+
+	return nil
 }
 
 // Defaults is a model of a GitHub Actions `defaults:` object.
@@ -103,6 +135,26 @@ func (e Environment) MarshalYAML() (any, error) {
 	}
 
 	return n, nil
+}
+
+type Needs []string
+
+func (l *Needs) UnmarshalYAML(n *yaml.Node) error {
+	switch n.Kind {
+	case yaml.ScalarNode:
+		*l = []string{n.Value}
+	case yaml.SequenceNode:
+		var list []string
+		if err := n.Decode(&list); err != nil {
+			return err
+		}
+
+		*l = list
+	default:
+		return fmt.Errorf("invalid job.needs %v", n.Kind)
+	}
+
+	return nil
 }
 
 // Permissions is a model of a GitHub Actions `permissions:` object.
