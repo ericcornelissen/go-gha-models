@@ -703,20 +703,41 @@ jobs:
 	}
 
 	edgeCases := map[string]TestCase{
+		"non-object concurrency": {
+			yaml: `
+concurrency: foobar
+`,
+			model: Workflow{
+				Concurrency: Concurrency{
+					Group: "foobar",
+				},
+			},
+		},
 		"non-array job.needs": {
 			yaml: `
 jobs:
   example:
     needs: foobar
 `,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"example": {
+						Needs: []string{"foobar"},
+					},
+				},
+			},
 		},
 	}
 
 	for name, tt := range edgeCases {
 		t.Run(name, func(t *testing.T) {
-			if err := yaml.Unmarshal([]byte(tt.yaml), &tt.model); err != nil {
+			var got Workflow
+			if err := yaml.Unmarshal([]byte(tt.yaml), &got); err != nil {
 				t.Fatalf("Want no error, got %#v", err)
 			}
+
+			want := tt.model
+			checkWorkflow(t, &got, &want)
 		})
 	}
 
@@ -755,7 +776,7 @@ permissions:
 		},
 		"yaml: invalid 'concurrency' value": {
 			yaml: `
-concurrency: 3.14
+concurrency: [3, 14]
 `,
 		},
 		"yaml: invalid 'concurrency.cancel-in-progress' value": {
