@@ -60,7 +60,7 @@ jobs: {}
 				Name:    "Example workflow",
 				RunName: "Example run by @${{ github.actor }}",
 				Concurrency: Concurrency{
-					CancelInProgress: true,
+					CancelInProgress: "true",
 					Group:            "group A",
 				},
 				Env: map[string]string{"FOO": "bar"},
@@ -118,6 +118,9 @@ jobs:
         environment:
             name: bar-env
             url: https://example.com
+        concurrency:
+            cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+            group: ${{ github.workflow }}-${{ github.ref }}
         defaults:
             run:
                 shell: bash
@@ -139,7 +142,7 @@ jobs:
 							"job2",
 						},
 						Concurrency: Concurrency{
-							CancelInProgress: true,
+							CancelInProgress: "true",
 							Group:            "group B",
 						},
 						Defaults: Defaults{
@@ -197,6 +200,10 @@ jobs:
 						Environment: Environment{
 							Name: "bar-env",
 							Url:  "https://example.com",
+						},
+						Concurrency: Concurrency{
+							CancelInProgress: "${{ startsWith(github.ref, 'refs/pull/') }}",
+							Group:            "${{ github.workflow }}-${{ github.ref }}",
 						},
 						Defaults: Defaults{
 							Run: DefaultsRun{
@@ -782,7 +789,7 @@ concurrency: [3, 14]
 		"yaml: invalid 'concurrency.cancel-in-progress' value": {
 			yaml: `
 concurrency:
-    cancel-in-progress: foobar
+    cancel-in-progress: ["foo", "bar"]
 `,
 		},
 		"yaml: invalid 'concurrency.group' value": {
@@ -884,7 +891,7 @@ jobs:
 jobs:
   example:
     concurrency:
-      cancel-in-progress: foobar
+      cancel-in-progress: ["foo", "bar"]
 `,
 		},
 		"yaml: invalid job 'concurrency.group' value": {
@@ -1285,7 +1292,7 @@ func checkConcurrency(t *testing.T, got, want *Concurrency) {
 	t.Helper()
 
 	if got, want := got.CancelInProgress, want.CancelInProgress; got != want {
-		t.Errorf("Unexpected concurrency.cancel-in-progress (got %t, want %t)", got, want)
+		t.Errorf("Unexpected concurrency.cancel-in-progress (got %q, want %q)", got, want)
 	}
 
 	if got, want := got.Group, want.Group; got != want {

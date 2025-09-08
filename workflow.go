@@ -47,7 +47,7 @@ type Job struct {
 
 // Concurrency is a model of a GitHub Actions `concurrency:` object.
 type Concurrency struct {
-	CancelInProgress bool   `yaml:"cancel-in-progress,omitempty"`
+	CancelInProgress string `yaml:"cancel-in-progress,omitempty"`
 	Group            string `yaml:"group,omitempty"`
 }
 
@@ -60,12 +60,14 @@ func (c *Concurrency) UnmarshalYAML(n *yaml.Node) error {
 		_ = n.Decode(&concurrency)
 
 		if v, ok := concurrency["cancel-in-progress"]; ok {
-			v, ok := v.(bool)
-			if !ok {
+			switch v := v.(type) {
+			case bool:
+				c.CancelInProgress = fmt.Sprintf("%t", v)
+			case string:
+				c.CancelInProgress = v
+			default:
 				return fmt.Errorf("invalid concurrency.cancel-in-progress %v", n.Kind)
 			}
-
-			c.CancelInProgress = v
 		}
 
 		if v, ok := concurrency["group"]; ok {
@@ -81,6 +83,33 @@ func (c *Concurrency) UnmarshalYAML(n *yaml.Node) error {
 	}
 
 	return nil
+}
+
+func (c Concurrency) MarshalYAML() (any, error) {
+	var v any
+	switch c.CancelInProgress {
+	case "true", "false":
+		v = struct {
+			CancelInProgress bool   `yaml:"cancel-in-progress"`
+			Group            string `yaml:"group,omitempty"`
+		}{
+			CancelInProgress: c.CancelInProgress == "true",
+			Group:            c.Group,
+		}
+	default:
+		v = struct {
+			CancelInProgress string `yaml:"cancel-in-progress,omitempty"`
+			Group            string `yaml:"group,omitempty"`
+		}{
+			CancelInProgress: c.CancelInProgress,
+			Group:            c.Group,
+		}
+	}
+
+	n := yaml.Node{}
+	_ = n.Encode(v)
+
+	return n, nil
 }
 
 // Defaults is a model of a GitHub Actions `defaults:` object.
