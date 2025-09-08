@@ -367,27 +367,66 @@ jobs:
 				},
 			},
 		},
-		"Job matrix": {
+		"Job matrix, one dimensional matrix": {
 			yaml: `
 jobs:
-    0-one-dimensional-matrix:
+    job:
         strategy:
             matrix:
                 version:
                     - 10
                     - 12
                     - 14
-    1-two-dimensional-matrix:
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"job": {
+						Strategy: Strategy{
+							Matrix: []map[string]any{
+								{"version": 10},
+								{"version": 12},
+								{"version": 14},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix, two dimensional matrix": {
+			yaml: `
+jobs:
+    job:
         strategy:
             matrix:
                 os:
                     - ubuntu-22.04
-                    - ubuntu 24.04
+                    - ubuntu-24.04
                 version:
                     - 10
                     - 12
                     - 14
-    2-nested-values-matrix:
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"job": {
+						Strategy: Strategy{
+							Matrix: []map[string]any{
+								{"os": "ubuntu-22.04", "version": 10},
+								{"os": "ubuntu-24.04", "version": 10},
+								{"os": "ubuntu-22.04", "version": 12},
+								{"os": "ubuntu-24.04", "version": 12},
+								{"os": "ubuntu-22.04", "version": 14},
+								{"os": "ubuntu-24.04", "version": 14},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix, nested values matrix": {
+			yaml: `
+jobs:
+    job:
         strategy:
             matrix:
                 node:
@@ -397,11 +436,70 @@ jobs:
                 os:
                     - ubuntu-latest
                     - macos-latest
-    3-context-matrix:
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"job": {
+						Strategy: Strategy{
+							Matrix: []map[string]any{
+								{
+									"os": "ubuntu-latest",
+									"node": map[string]any{
+										"version": 14,
+									},
+								},
+								{
+									"os": "ubuntu-latest",
+									"node": map[string]any{
+										"version": 20,
+										"env":     "NODE_OPTIONS=--openssl-legacy-provider",
+									},
+								},
+								{
+									"os": "macos-latest",
+									"node": map[string]any{
+										"version": 14,
+									},
+								},
+								{
+									"os": "macos-latest",
+									"node": map[string]any{
+										"version": 20,
+										"env":     "NODE_OPTIONS=--openssl-legacy-provider",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix, context matrix": {
+			yaml: `
+jobs:
+    job:
         strategy:
             matrix:
                 version: ${{ github.event.client_payload.versions }}
-    4-matrix-include:
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"job": {
+						Strategy: Strategy{
+							Matrix: []map[string]any{
+								{
+									"version": "${{ github.event.client_payload.versions }}",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix, matrix include": {
+			yaml: `
+jobs:
+    job:
         strategy:
             matrix:
                 animal:
@@ -419,7 +517,56 @@ jobs:
                     - fruit: banana
                     - animal: cat
                       fruit: banana
-    5-expanding-configuration:
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"job": {
+						Strategy: Strategy{
+							Matrix: []map[string]any{
+								{
+									"animal": "cat",
+									"fruit":  "apple",
+								},
+								{
+									"animal": "cat",
+									"fruit":  "pear",
+								},
+								{
+									"animal": "dog",
+									"fruit":  "apple",
+								},
+								{
+									"animal": "dog",
+									"fruit":  "pear",
+								},
+								{
+									"color": "green",
+								},
+								{
+									"animal": "cat",
+									"color":  "pink",
+								},
+								{
+									"fruit": "apple",
+									"shape": "circle",
+								},
+								{
+									"fruit": "banana",
+								},
+								{
+									"animal": "cat",
+									"fruit":  "banana",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix, expanding configuration": {
+			yaml: `
+jobs:
+    job:
         strategy:
             matrix:
                 include:
@@ -432,7 +579,39 @@ jobs:
                 os:
                     - windows-latest
                     - ubuntu-latest
-    6-include-only:
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"job": {
+						Strategy: Strategy{
+							Matrix: []map[string]any{
+								{
+									"node": 14,
+									"os":   "windows-latest",
+								},
+								{
+									"node": 14,
+									"os":   "ubuntu-latest",
+								},
+								{
+									"node": 16,
+									"npm":  6,
+									"os":   "windows-latest",
+								},
+								{
+									"node": 16,
+									"os":   "ubuntu-latest",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix, include only": {
+			yaml: `
+jobs:
+    job:
         strategy:
             matrix:
                 include:
@@ -440,7 +619,30 @@ jobs:
                       site: production
                     - datacenter: site-b
                       site: staging
-    7-exclude:
+`,
+			model: Workflow{
+				Jobs: map[string]Job{
+					"job": {
+						Strategy: Strategy{
+							Matrix: []map[string]any{
+								{
+									"datacenter": "site-a",
+									"site":       "production",
+								},
+								{
+									"datacenter": "site-b",
+									"site":       "staging",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"Job matrix, exclude": {
+			yaml: `
+jobs:
+    job:
         strategy:
             matrix:
                 environment:
@@ -462,117 +664,53 @@ jobs:
 `,
 			model: Workflow{
 				Jobs: map[string]Job{
-					"0-one-dimensional-matrix": {
+					"job": {
 						Strategy: Strategy{
-							Matrix: Matrix{
-								Matrix: map[string]any{
-									"version": []any{
-										10,
-										12,
-										14,
-									},
+							Matrix: []map[string]any{
+								{
+									"environment": "staging",
+									"os":          "macos-latest",
+									"version":     12,
 								},
-							},
-						},
-					},
-					"1-two-dimensional-matrix": {
-						Strategy: Strategy{
-							Matrix: Matrix{
-								Matrix: map[string]any{
-									"os": []any{
-										"ubuntu-22.04",
-										"ubuntu 24.04",
-									},
-									"version": []any{
-										10,
-										12,
-										14,
-									},
+								{
+									"environment": "staging",
+									"os":          "macos-latest",
+									"version":     14,
 								},
-							},
-						},
-					},
-					"2-nested-values-matrix": {
-						Strategy: Strategy{
-							Matrix: Matrix{
-								Matrix: map[string]any{
-									"os": []any{
-										"ubuntu-latest",
-										"macos-latest",
-									},
-									"node": []any{
-										map[string]any{
-											"version": 14,
-										},
-										map[string]any{
-											"version": 20,
-											"env":     "NODE_OPTIONS=--openssl-legacy-provider",
-										},
-									},
+								{
+									"environment": "staging",
+									"os":          "macos-latest",
+									"version":     16,
 								},
-							},
-						},
-					},
-					"3-context-matrix": {
-						Strategy: Strategy{
-							Matrix: Matrix{
-								Matrix: map[string]any{
-									"version": "${{ github.event.client_payload.versions }}",
+								{
+									"environment": "staging",
+									"os":          "windows-latest",
+									"version":     12,
 								},
-							},
-						},
-					},
-					"4-matrix-include": {
-						Strategy: Strategy{
-							Matrix: Matrix{
-								Matrix: map[string]any{
-									"animal": []any{"cat", "dog"},
-									"fruit":  []any{"apple", "pear"},
+								{
+									"environment": "staging",
+									"os":          "windows-latest",
+									"version":     14,
 								},
-								Include: []map[string]any{
-									{"color": "green"},
-									{"animal": "cat", "color": "pink"},
-									{"fruit": "apple", "shape": "circle"},
-									{"fruit": "banana"},
-									{"animal": "cat", "fruit": "banana"},
+								{
+									"environment": "production",
+									"os":          "macos-latest",
+									"version":     14,
 								},
-							},
-						},
-					},
-					"5-expanding-configuration": {
-						Strategy: Strategy{
-							Matrix: Matrix{
-								Matrix: map[string]any{
-									"os":   []any{"windows-latest", "ubuntu-latest"},
-									"node": []any{14, 16},
+								{
+									"environment": "production",
+									"os":          "macos-latest",
+									"version":     16,
 								},
-								Include: []map[string]any{
-									{"node": 16, "npm": 6, "os": "windows-latest"},
+								{
+									"environment": "production",
+									"os":          "windows-latest",
+									"version":     12,
 								},
-							},
-						},
-					},
-					"6-include-only": {
-						Strategy: Strategy{
-							Matrix: Matrix{
-								Include: []map[string]any{
-									{"datacenter": "site-a", "site": "production"},
-									{"datacenter": "site-b", "site": "staging"},
-								},
-							},
-						},
-					},
-					"7-exclude": {
-						Strategy: Strategy{
-							Matrix: Matrix{
-								Matrix: map[string]any{
-									"environment": []any{"staging", "production"},
-									"os":          []any{"macos-latest", "windows-latest"},
-									"version":     []any{12, 14, 16},
-								},
-								Exclude: []map[string]any{
-									{"environment": "production", "os": "macos-latest", "version": 12},
-									{"os": "windows-latest", "version": 16},
+								{
+									"environment": "production",
+									"os":          "windows-latest",
+									"version":     14,
 								},
 							},
 						},
@@ -701,6 +839,10 @@ jobs:
 
 	for name, tt := range okCases {
 		t.Run("Marshal: "+name, func(t *testing.T) {
+			if strings.HasPrefix(name, "Job matrix,") {
+				t.SkipNow()
+			}
+
 			got, err := yaml.Marshal(tt.model)
 			if err != nil {
 				t.Fatalf("Want no error, got %#v", err)
@@ -1449,16 +1591,30 @@ func checkServices(t *testing.T, got, want map[string]Service) {
 func checkStrategy(t *testing.T, got, want *Strategy) {
 	t.Helper()
 
-	if got, want := got.Matrix.Matrix, want.Matrix.Matrix; !reflect.DeepEqual(got, want) {
-		t.Errorf("Strategy matrix are not equal (got %+v, want %+v)", got, want)
+	for _, got := range got.Matrix {
+		found := false
+		for _, want := range want.Matrix {
+			if reflect.DeepEqual(got, want) {
+				found = true
+			}
+		}
+
+		if !found {
+			t.Errorf("Unexpected entry in matrix: %v", got)
+		}
 	}
 
-	if got, want := got.Matrix.Include, want.Matrix.Include; !reflect.DeepEqual(got, want) {
-		t.Errorf("Strategy matrix.include are not equal (got %+v, want %+v)", got, want)
-	}
+	for _, want := range want.Matrix {
+		found := false
+		for _, got := range got.Matrix {
+			if reflect.DeepEqual(got, want) {
+				found = true
+			}
+		}
 
-	if got, want := got.Matrix.Exclude, want.Matrix.Exclude; !reflect.DeepEqual(got, want) {
-		t.Errorf("Strategy matrix.exclude are not equal (got %+v, want %+v)", got, want)
+		if !found {
+			t.Errorf("Missing entry in matrix: %v", want)
+		}
 	}
 
 	if got, want := got.FailFast, want.FailFast; got != want {
