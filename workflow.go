@@ -4,6 +4,7 @@ package gha
 
 import (
 	"fmt"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -367,9 +368,27 @@ type Service struct {
 	Image       string             `yaml:"image"`
 	Credentials ServiceCredentials `yaml:"credentials,omitempty"`
 	Env         map[string]string  `yaml:"env,omitempty"`
-	Ports       []int              `yaml:"ports,omitempty"`
+	Ports       Ports              `yaml:"ports,omitempty"`
 	Volumes     []string           `yaml:"volumes,omitempty"`
 	Options     string             `yaml:"options,omitempty"`
+}
+
+type Ports []string
+
+func (p Ports) MarshalYAML() (any, error) {
+	v := make([]any, len(p))
+	for i, p := range p {
+		if n, err := strconv.Atoi(p); err == nil {
+			v[i] = n
+		} else {
+			v[i] = p
+		}
+	}
+
+	n := yaml.Node{}
+	_ = n.Encode(v)
+
+	return n, nil
 }
 
 // ServiceCredentials is a model of a GitHub Actions `services.credentials:` object.

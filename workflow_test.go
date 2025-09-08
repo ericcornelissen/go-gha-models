@@ -124,6 +124,11 @@ jobs:
         defaults:
             run:
                 shell: bash
+        services:
+            redis:
+                image: redis
+                ports:
+                    - 6379/tcp
         permissions:
             attestations: write
             models: read
@@ -165,8 +170,8 @@ jobs:
 								Env: map[string]string{
 									"FOO": "bar",
 								},
-								Ports: []int{
-									80,
+								Ports: []string{
+									"80",
 								},
 								Volumes: []string{
 									"my_docker_volume:/volume_mount",
@@ -208,6 +213,14 @@ jobs:
 						Defaults: Defaults{
 							Run: DefaultsRun{
 								Shell: "bash",
+							},
+						},
+						Services: map[string]Service{
+							"redis": {
+								Image: "redis",
+								Ports: []string{
+									"6379/tcp",
+								},
 							},
 						},
 						Permissions: Permissions{
