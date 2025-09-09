@@ -4,6 +4,8 @@ package gha
 
 import (
 	"fmt"
+	"maps"
+	"sort"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
@@ -405,81 +407,131 @@ type Strategy struct {
 }
 
 // Matrix is a model of a GitHub Actions `strategy.matrix:` object.
-type Matrix struct {
-	Matrix  map[string]any
-	Include []map[string]any
-	Exclude []map[string]any
-}
+type Matrix []map[string]any
 
 func (m *Matrix) UnmarshalYAML(n *yaml.Node) error {
 	if n.Kind != yaml.MappingNode {
 		return fmt.Errorf("invalid matrix %q", n.Value)
 	}
 
-	var matrix map[string]any
-	_ = n.Decode(&matrix)
+	var raw map[string]any
+	_ = n.Decode(&raw)
 
-	if include, ok := matrix["include"]; ok {
-		tmp, ok := include.([]any)
+	var include []map[string]any
+	if v, ok := raw["include"]; ok {
+		delete(raw, "include")
+
+		tmp, ok := v.([]any)
 		if !ok {
-			return fmt.Errorf("invalid matrix.include %q", n.Value)
+			return fmt.Errorf("invalid matrix.include %v", v)
 		}
 
-		m.Include = make([]map[string]any, len(tmp))
-		for i, tmp := range tmp {
-			include, ok := tmp.(map[string]any)
-			if !ok {
-				return fmt.Errorf("invalid matrix.include %q", n.Value)
+		include = make([]map[string]any, len(tmp))
+		for k, v := range tmp {
+			if v, ok := v.(map[string]any); !ok {
+				return fmt.Errorf("invalid matrix.include entry %v", v)
+			} else {
+				include[k] = v
+			}
+		}
+	}
+
+	var exclude []map[string]any
+	if v, ok := raw["exclude"]; ok {
+		delete(raw, "exclude")
+
+		tmp, ok := v.([]any)
+		if !ok {
+			return fmt.Errorf("invalid matrix.exclude %v", v)
+		}
+
+		exclude = make([]map[string]any, len(tmp))
+		for k, v := range tmp {
+			if v, ok := v.(map[string]any); !ok {
+				return fmt.Errorf("invalid matrix.exclude entry %v", v)
+			} else {
+				exclude[k] = v
+			}
+		}
+	}
+
+	result := []map[string]any{}
+	if len(raw) != 0 {
+		result = append(result, map[string]any{})
+	}
+	for k, tmp := range raw {
+		var vs []any
+		switch tmp := tmp.(type) {
+		case []any:
+			vs = tmp
+		case string:
+			vs = []any{tmp}
+		default:
+			return fmt.Errorf("invalid matrix entry %q", k)
+		}
+
+		matrix := []map[string]any{}
+		for _, v := range vs {
+			for _, src := range result {
+				dest := map[string]any{}
+				matrix = append(matrix, dest)
+
+				maps.Copy(dest, src)
+				dest[k] = v
+			}
+		}
+
+		result = matrix
+	}
+
+	extend := []map[string]any{}
+Loop_include:
+	for _, include := range include {
+		for _, entry := range result {
+			found := entry
+			for k, want := range entry {
+				if got, ok := include[k]; !ok || got != want {
+					found = nil
+				}
 			}
 
-			m.Include[i] = include
+			if found != nil {
+				for k, v := range include {
+					found[k] = v
+				}
+
+				continue Loop_include
+			}
 		}
 
-		delete(matrix, "include")
+		extend = append(extend, include)
 	}
+	result = append(result, extend...)
 
-	if exclude, ok := matrix["exclude"]; ok {
-		tmp, ok := exclude.([]any)
-		if !ok {
-			return fmt.Errorf("invalid matrix.exclude %q", n.Value)
-		}
-
-		m.Exclude = make([]map[string]any, len(tmp))
-		for i, tmp := range tmp {
-			exclude, ok := tmp.(map[string]any)
-			if !ok {
-				return fmt.Errorf("invalid matrix.exclude %q", n.Value)
+	for _, exclude := range exclude {
+		omit := []int{}
+		for i, entry := range result {
+			found := true
+			for k, want := range exclude {
+				if got, ok := entry[k]; !ok || got != want {
+					found = false
+				}
 			}
 
-			m.Exclude[i] = exclude
+			if found {
+				omit = append(omit, i)
+			}
 		}
 
-		delete(matrix, "exclude")
+		sort.Sort(sort.Reverse(sort.IntSlice(omit)))
+		for _, i := range omit {
+			result = append(result[0:i], result[i+1:]...)
+		}
 	}
 
-	if len(matrix) != 0 {
-		m.Matrix = matrix
-	}
+	*m = result
 
 	return nil
-}
-
-func (m Matrix) MarshalYAML() (any, error) {
-	matrix := make(map[string]any, len(m.Matrix))
-	for k, v := range m.Matrix {
-		matrix[k] = v
-	}
-
-	if include := m.Include; len(include) != 0 {
-		matrix["include"] = include
-	}
-	if exclude := m.Exclude; len(exclude) != 0 {
-		matrix["exclude"] = exclude
-	}
-
-	n := yaml.Node{}
-	err := n.Encode(matrix)
-	return n, err
 }
 
 // ParseWorkflow parses a GitHub Actions workflow into a [Workflow].
