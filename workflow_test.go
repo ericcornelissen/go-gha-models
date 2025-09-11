@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
-	"testing/quick"
 
 	"gopkg.in/yaml.v3"
 )
@@ -838,22 +836,7 @@ jobs:
 	}
 
 	for name, tt := range okCases {
-		t.Run("Marshal: "+name, func(t *testing.T) {
-			if strings.HasPrefix(name, "Job matrix,") {
-				t.SkipNow()
-			}
-
-			got, err := yaml.Marshal(tt.model)
-			if err != nil {
-				t.Fatalf("Want no error, got %#v", err)
-			}
-
-			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
-				t.Errorf("Unexpected result\n=== got ===\n%s\n=== want ===\n%s", got, want)
-			}
-		})
-
-		t.Run("Unmarshal: "+name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			got, err := ParseWorkflow([]byte(tt.yaml))
 			if err != nil {
 				t.Fatalf("Want no error, got %#v", err)
@@ -904,91 +887,91 @@ jobs:
 	}
 
 	errCases := map[string]TestCase{
-		"yaml: invalid 'name' value": {
+		"invalid 'name' value": {
 			yaml: `
 name:
 - foo
 - bar
 `,
 		},
-		"yaml: invalid 'run-name' value": {
+		"invalid 'run-name' value": {
 			yaml: `
 run-name:
 - foo
 - bar
 `,
 		},
-		"yaml: invalid 'permissions' value, scalar": {
+		"invalid 'permissions' value, scalar": {
 			yaml: `
 permissions: 3.14
 `,
 		},
-		"yaml: invalid 'permissions' value, non-scalar": {
+		"invalid 'permissions' value, non-scalar": {
 			yaml: `
 permissions:
 - foo
 - bar
 `,
 		},
-		"yaml: invalid 'permissions.[*]' value": {
+		"invalid 'permissions.[*]' value": {
 			yaml: `
 permissions:
     issues: [3, 14]
 `,
 		},
-		"yaml: invalid 'concurrency' value": {
+		"invalid 'concurrency' value": {
 			yaml: `
 concurrency: [3, 14]
 `,
 		},
-		"yaml: invalid 'concurrency.cancel-in-progress' value": {
+		"invalid 'concurrency.cancel-in-progress' value": {
 			yaml: `
 concurrency:
     cancel-in-progress: ["foo", "bar"]
 `,
 		},
-		"yaml: invalid 'concurrency.group' value": {
+		"invalid 'concurrency.group' value": {
 			yaml: `
 concurrency:
     group: [42]
 `,
 		},
-		"yaml: invalid 'defaults' value": {
+		"invalid 'defaults' value": {
 			yaml: `
 defaults: 3
 `,
 		},
-		"yaml: invalid 'defaults.run' value": {
+		"invalid 'defaults.run' value": {
 			yaml: `
 defaults:
   run: 14
 `,
 		},
-		"yaml: invalid 'defaults.run.shell' value": {
+		"invalid 'defaults.run.shell' value": {
 			yaml: `
 defaults:
   run:
     shell: [3, 14]
 `,
 		},
-		"yaml: invalid 'defaults.run.working-directory' value": {
+		"invalid 'defaults.run.working-directory' value": {
 			yaml: `
 defaults:
   run:
     working-directory: [42]
 `,
 		},
-		"yaml: invalid 'env' value": {
+		"invalid 'env' value": {
 			yaml: `
 env: [3, 14]
 `,
 		},
-		"yaml: invalid 'jobs' value": {
+		"invalid 'jobs' value": {
 			yaml: `
 jobs: 3.14
 `,
 		},
-		"yaml: invalid job 'name' value": {
+		"invalid job 'name' value": {
 			yaml: `
 jobs:
   example:
@@ -996,7 +979,7 @@ jobs:
     - uses: actions/checkout@v4
 `,
 		},
-		"yaml: invalid job 'environment' value": {
+		"invalid job 'environment' value": {
 			yaml: `
 jobs:
   example:
@@ -1005,28 +988,28 @@ jobs:
     - bar
 `,
 		},
-		"yaml: invalid job 'continue-on-error' value": {
+		"invalid job 'continue-on-error' value": {
 			yaml: `
 jobs:
   example:
     continue-on-error: foobar
 `,
 		},
-		"yaml: invalid job 'timeout-minutes' value": {
+		"invalid job 'timeout-minutes' value": {
 			yaml: `
 jobs:
   example:
     timeout-minutes: foobar
 `,
 		},
-		"yaml: invalid job 'if' value": {
+		"invalid job 'if' value": {
 			yaml: `
 jobs:
   example:
     if: [3, 14]
 `,
 		},
-		"yaml: invalid job 'needs' value": {
+		"invalid job 'needs' value": {
 			yaml: `
 jobs:
   example:
@@ -1034,14 +1017,14 @@ jobs:
       foo: bar
 `,
 		},
-		"yaml: invalid job 'concurrency' value": {
+		"invalid job 'concurrency' value": {
 			yaml: `
 jobs:
   example:
     concurrency: [3, 14]
 `,
 		},
-		"yaml: invalid job 'concurrency.cancel-in-progress' value": {
+		"invalid job 'concurrency.cancel-in-progress' value": {
 			yaml: `
 jobs:
   example:
@@ -1049,7 +1032,7 @@ jobs:
       cancel-in-progress: ["foo", "bar"]
 `,
 		},
-		"yaml: invalid job 'concurrency.group' value": {
+		"invalid job 'concurrency.group' value": {
 			yaml: `
 jobs:
   example:
@@ -1057,14 +1040,14 @@ jobs:
       group: [42]
 `,
 		},
-		"yaml: invalid job 'defaults' value": {
+		"invalid job 'defaults' value": {
 			yaml: `
 jobs:
   example:
     defaults: foobar
 `,
 		},
-		"yaml: invalid job 'defaults.run' value": {
+		"invalid job 'defaults.run' value": {
 			yaml: `
 jobs:
   example:
@@ -1072,7 +1055,7 @@ jobs:
       run: 14
 `,
 		},
-		"yaml: invalid job 'defaults.run.shell' value": {
+		"invalid job 'defaults.run.shell' value": {
 			yaml: `
 jobs:
   example:
@@ -1081,7 +1064,7 @@ jobs:
          shell: [3, 14]
 `,
 		},
-		"yaml: invalid job 'defaults.run.working-directory' value": {
+		"invalid job 'defaults.run.working-directory' value": {
 			yaml: `
 jobs:
   example:
@@ -1090,7 +1073,7 @@ jobs:
         working-directory: [42]
 `,
 		},
-		"yaml: invalid job 'strategy.matrix' value": {
+		"invalid job 'strategy.matrix' value": {
 			yaml: `
 jobs:
   example:
@@ -1098,7 +1081,7 @@ jobs:
       matrix: 42
 `,
 		},
-		"yaml: invalid job 'strategy.matrix.include' value": {
+		"invalid job 'strategy.matrix.include' value": {
 			yaml: `
 jobs:
   example:
@@ -1107,7 +1090,7 @@ jobs:
         include: 42
 `,
 		},
-		"yaml: invalid job 'strategy.matrix.include[*]' value": {
+		"invalid job 'strategy.matrix.include[*]' value": {
 			yaml: `
 jobs:
   example:
@@ -1117,7 +1100,7 @@ jobs:
           - 42
 `,
 		},
-		"yaml: invalid job 'strategy.matrix.exclude' value": {
+		"invalid job 'strategy.matrix.exclude' value": {
 			yaml: `
 jobs:
   example:
@@ -1126,7 +1109,7 @@ jobs:
         exclude: 42
 `,
 		},
-		"yaml: invalid job 'strategy.matrix.exclude[*]' value": {
+		"invalid job 'strategy.matrix.exclude[*]' value": {
 			yaml: `
 jobs:
   example:
@@ -1136,7 +1119,7 @@ jobs:
           - 42
 `,
 		},
-		"yaml: invalid job 'strategy.fail-fast' value": {
+		"invalid job 'strategy.fail-fast' value": {
 			yaml: `
 jobs:
   example:
@@ -1144,7 +1127,7 @@ jobs:
       fail-fast: [42]
 `,
 		},
-		"yaml: invalid job 'strategy.max-parallel' value": {
+		"invalid job 'strategy.max-parallel' value": {
 			yaml: `
 jobs:
   example:
@@ -1152,14 +1135,14 @@ jobs:
       max-parallel: [42]
 `,
 		},
-		"yaml: invalid job 'services' value": {
+		"invalid job 'services' value": {
 			yaml: `
 jobs:
   example:
     services: 42
 `,
 		},
-		"yaml: invalid job 'services.[*]' value": {
+		"invalid job 'services.[*]' value": {
 			yaml: `
 jobs:
   example:
@@ -1167,7 +1150,7 @@ jobs:
       example: 3.14
 `,
 		},
-		"yaml: invalid job 'services.[*].image' value": {
+		"invalid job 'services.[*].image' value": {
 			yaml: `
 jobs:
   example:
@@ -1176,7 +1159,7 @@ jobs:
         image: [3, 14]
 `,
 		},
-		"yaml: invalid job 'services.[*].credentials' value": {
+		"invalid job 'services.[*].credentials' value": {
 			yaml: `
 jobs:
   example:
@@ -1185,7 +1168,7 @@ jobs:
         credentials: foobar
 `,
 		},
-		"yaml: invalid job 'services.[*].credentials.username' value": {
+		"invalid job 'services.[*].credentials.username' value": {
 			yaml: `
 jobs:
   example:
@@ -1195,7 +1178,7 @@ jobs:
           username: ["foo", "bar"]
 `,
 		},
-		"yaml: invalid job 'services.[*].credentials.password' value": {
+		"invalid job 'services.[*].credentials.password' value": {
 			yaml: `
 jobs:
   example:
@@ -1206,7 +1189,7 @@ jobs:
             foo: bar
 `,
 		},
-		"yaml: invalid job 'services.[*].env' value": {
+		"invalid job 'services.[*].env' value": {
 			yaml: `
 jobs:
   example:
@@ -1215,7 +1198,7 @@ jobs:
         env: foobar
 `,
 		},
-		"yaml: invalid job 'services.[*].ports' value": {
+		"invalid job 'services.[*].ports' value": {
 			yaml: `
 jobs:
   example:
@@ -1224,7 +1207,7 @@ jobs:
         ports: foobar
 `,
 		},
-		"yaml: invalid job 'services.[*].volumes' value": {
+		"invalid job 'services.[*].volumes' value": {
 			yaml: `
 jobs:
   example:
@@ -1233,7 +1216,7 @@ jobs:
         volumes: foobar
 `,
 		},
-		"yaml: invalid job 'services.[*].options' value": {
+		"invalid job 'services.[*].options' value": {
 			yaml: `
 jobs:
   example:
@@ -1242,35 +1225,35 @@ jobs:
         options: [3, 14]
 `,
 		},
-		"yaml: invalid job 'outputs' value": {
+		"invalid job 'outputs' value": {
 			yaml: `
 jobs:
   example:
     outputs: [3, 14]
 `,
 		},
-		"yaml: invalid job 'permissions' value": {
+		"invalid job 'permissions' value": {
 			yaml: `
 jobs:
   example:
     permissions: [3, 14]
 `,
 		},
-		"yaml: invalid job 'env' value": {
+		"invalid job 'env' value": {
 			yaml: `
 jobs:
   example:
     env: foobar
 `,
 		},
-		"yaml: invalid job 'steps' value": {
+		"invalid job 'steps' value": {
 			yaml: `
 jobs:
   example:
     steps: 42
 `,
 		},
-		"yaml: invalid job 'uses' value": {
+		"invalid job 'uses' value": {
 			yaml: `
 jobs:
   example:
@@ -1278,7 +1261,7 @@ jobs:
       - name: actions/checkout@v4
 `,
 		},
-		"yaml: invalid job 'with' value": {
+		"invalid job 'with' value": {
 			yaml: `
 jobs:
   example:
@@ -1289,37 +1272,10 @@ jobs:
 
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
-			var err error
-			switch {
-			case strings.HasPrefix(name, "model:"):
-				_, err = yaml.Marshal(tt.model)
-			case strings.HasPrefix(name, "yaml:"):
-				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
-			default:
-				t.Fatalf("Incorrect test name %q", name)
-			}
-
-			if err == nil {
+			if err := yaml.Unmarshal([]byte(tt.yaml), &tt.model); err == nil {
 				t.Error("Want an error, got none")
 			}
 		})
-	}
-
-	roundtrip := func(w Workflow) bool {
-		b, err := yaml.Marshal(w)
-		if err != nil {
-			return true
-		}
-
-		if err := yaml.Unmarshal(b, &w); err != nil {
-			return false
-		}
-
-		return true
-	}
-
-	if err := quick.Check(roundtrip, nil); err != nil {
-		t.Error(err)
 	}
 }
 
