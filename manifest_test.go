@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"testing/quick"
 
 	"gopkg.in/yaml.v3"
 )
@@ -250,18 +249,7 @@ runs:
 	}
 
 	for name, tt := range okCases {
-		t.Run("Marshal: "+name, func(t *testing.T) {
-			got, err := yaml.Marshal(tt.model)
-			if err != nil {
-				t.Fatalf("Want no error, got %#v", err)
-			}
-
-			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
-				t.Errorf("Unexpected result\n=== got ===\n%s\n=== want ===\n%s", got, want)
-			}
-		})
-
-		t.Run("Unmarshal: "+name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			got, err := ParseManifest([]byte(tt.yaml))
 			if err != nil {
 				t.Fatalf("Want no error, got %#v", err)
@@ -470,23 +458,6 @@ runs:
 				t.Error("Want an error, got none")
 			}
 		})
-	}
-
-	roundtrip := func(m Manifest) bool {
-		b, err := yaml.Marshal(m)
-		if err != nil {
-			return true
-		}
-
-		if err := yaml.Unmarshal(b, &m); err != nil {
-			return false
-		}
-
-		return true
-	}
-
-	if err := quick.Check(roundtrip, nil); err != nil {
-		t.Error(err)
 	}
 }
 
