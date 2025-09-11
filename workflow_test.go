@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"testing/quick"
 
 	"gopkg.in/yaml.v3"
 )
@@ -838,22 +837,7 @@ jobs:
 	}
 
 	for name, tt := range okCases {
-		t.Run("Marshal: "+name, func(t *testing.T) {
-			if strings.HasPrefix(name, "Job matrix,") {
-				t.SkipNow()
-			}
-
-			got, err := yaml.Marshal(tt.model)
-			if err != nil {
-				t.Fatalf("Want no error, got %#v", err)
-			}
-
-			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
-				t.Errorf("Unexpected result\n=== got ===\n%s\n=== want ===\n%s", got, want)
-			}
-		})
-
-		t.Run("Unmarshal: "+name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			got, err := ParseWorkflow([]byte(tt.yaml))
 			if err != nil {
 				t.Fatalf("Want no error, got %#v", err)
@@ -1303,23 +1287,6 @@ jobs:
 				t.Error("Want an error, got none")
 			}
 		})
-	}
-
-	roundtrip := func(w Workflow) bool {
-		b, err := yaml.Marshal(w)
-		if err != nil {
-			return true
-		}
-
-		if err := yaml.Unmarshal(b, &w); err != nil {
-			return false
-		}
-
-		return true
-	}
-
-	if err := quick.Check(roundtrip, nil); err != nil {
-		t.Error(err)
 	}
 }
 

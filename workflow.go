@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"sort"
-	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -88,33 +87,6 @@ func (c *Concurrency) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-func (c Concurrency) MarshalYAML() (any, error) {
-	var v any
-	switch c.CancelInProgress {
-	case "true", "false":
-		v = struct {
-			CancelInProgress bool   `yaml:"cancel-in-progress"`
-			Group            string `yaml:"group,omitempty"`
-		}{
-			CancelInProgress: c.CancelInProgress == "true",
-			Group:            c.Group,
-		}
-	default:
-		v = struct {
-			CancelInProgress string `yaml:"cancel-in-progress,omitempty"`
-			Group            string `yaml:"group,omitempty"`
-		}{
-			CancelInProgress: c.CancelInProgress,
-			Group:            c.Group,
-		}
-	}
-
-	n := yaml.Node{}
-	_ = n.Encode(v)
-
-	return n, nil
-}
-
 // Defaults is a model of a GitHub Actions `defaults:` object.
 type Defaults struct {
 	Run DefaultsRun `yaml:"run,omitempty"`
@@ -151,22 +123,6 @@ func (e *Environment) UnmarshalYAML(n *yaml.Node) error {
 	}
 
 	return nil
-}
-
-func (e Environment) MarshalYAML() (any, error) {
-	n := yaml.Node{}
-	if e.Url == "" {
-		n.Kind = yaml.ScalarNode
-		n.Tag = "!!str"
-		n.Value = e.Name
-	} else {
-		env := make(map[string]string, 2)
-		env["name"] = e.Name
-		env["url"] = e.Url
-		_ = n.Encode(env)
-	}
-
-	return n, nil
 }
 
 type Needs []string
@@ -300,71 +256,6 @@ func (p *Permissions) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-func (p Permissions) MarshalYAML() (any, error) {
-	all := func(s string) bool {
-		return p.Actions == s && p.Attestations == s && p.Checks == s && p.Contents == s && p.Deployments == s && p.Discussions == s && p.IdToken == s && p.Issues == s && p.Models == s && p.Packages == s && p.Pages == s && p.PullRequests == s && p.SecurityEvents == s && p.Statuses == s
-	}
-
-	n := yaml.Node{}
-	switch {
-	case all("read"):
-		n.Kind = yaml.ScalarNode
-		n.Tag = "!!str"
-		n.Value = "read-all"
-	case all("write"):
-		n.Kind = yaml.ScalarNode
-		n.Tag = "!!str"
-		n.Value = "write-all"
-	default:
-		perms := make(map[string]string, 14)
-		if v := p.Actions; v != "none" {
-			perms["actions"] = v
-		}
-		if v := p.Attestations; v != "none" {
-			perms["attestations"] = v
-		}
-		if v := p.Checks; v != "none" {
-			perms["checks"] = v
-		}
-		if v := p.Contents; v != "none" {
-			perms["contents"] = v
-		}
-		if v := p.Deployments; v != "none" {
-			perms["deployments"] = v
-		}
-		if v := p.Discussions; v != "none" {
-			perms["discussions"] = v
-		}
-		if v := p.IdToken; v != "none" {
-			perms["id-token"] = v
-		}
-		if v := p.Issues; v != "none" {
-			perms["issues"] = v
-		}
-		if v := p.Models; v != "none" {
-			perms["models"] = v
-		}
-		if v := p.Packages; v != "none" {
-			perms["packages"] = v
-		}
-		if v := p.Pages; v != "none" {
-			perms["pages"] = v
-		}
-		if v := p.PullRequests; v != "none" {
-			perms["pull-requests"] = v
-		}
-		if v := p.SecurityEvents; v != "none" {
-			perms["security-events"] = v
-		}
-		if v := p.Statuses; v != "none" {
-			perms["statuses"] = v
-		}
-		_ = n.Encode(perms)
-	}
-
-	return n, nil
-}
-
 // Service is a model of a GitHub Actions `services:` object.
 type Service struct {
 	Image       string             `yaml:"image"`
@@ -376,22 +267,6 @@ type Service struct {
 }
 
 type Ports []string
-
-func (p Ports) MarshalYAML() (any, error) {
-	v := make([]any, len(p))
-	for i, p := range p {
-		if n, err := strconv.Atoi(p); err == nil {
-			v[i] = n
-		} else {
-			v[i] = p
-		}
-	}
-
-	n := yaml.Node{}
-	_ = n.Encode(v)
-
-	return n, nil
-}
 
 // ServiceCredentials is a model of a GitHub Actions `services.credentials:` object.
 type ServiceCredentials struct {
