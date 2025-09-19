@@ -3,9 +3,7 @@
 package gha
 
 import (
-	"strings"
 	"testing"
-	"testing/quick"
 
 	"gopkg.in/yaml.v3"
 )
@@ -132,18 +130,7 @@ run: echo 'foobaz'
 	}
 
 	for name, tt := range okCases {
-		t.Run("Marshal: "+name, func(t *testing.T) {
-			got, err := yaml.Marshal(tt.model)
-			if err != nil {
-				t.Fatalf("Want no error, got %#v", err)
-			}
-
-			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
-				t.Errorf("Unexpected result\n=== got ===\n%s\n=== want ===\n%s", got, want)
-			}
-		})
-
-		t.Run("Unmarshal: "+name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			var got Step
 			if err := yaml.Unmarshal([]byte(tt.yaml), &got); err != nil {
 				t.Fatalf("Want no error, got %#v", err)
@@ -155,58 +142,58 @@ run: echo 'foobaz'
 	}
 
 	errCases := map[string]TestCase{
-		"yaml: invalid 'name' value": {
+		"invalid 'name' value": {
 			yaml: `
 name:
   foo: bar
 `,
 		},
-		"yaml: invalid 'uses' value": {
+		"invalid 'uses' value": {
 			yaml: `
 uses: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'id' value": {
+		"invalid 'id' value": {
 			yaml: `
 id:
   foo: bar
 `,
 		},
-		"yaml: invalid 'if' value": {
+		"invalid 'if' value": {
 			yaml: `
 if:
   foo: bar
 `,
 		},
-		"yaml: invalid 'continue-on-error' value": {
+		"invalid 'continue-on-error' value": {
 			yaml: `continue-on-error: foobar`,
 		},
-		"yaml: invalid 'timeout-minutes' value": {
+		"invalid 'timeout-minutes' value": {
 			yaml: `timeout-minutes: foobar`,
 		},
-		"yaml: invalid 'working-directory' value": {
+		"invalid 'working-directory' value": {
 			yaml: `
 working-directory:
   foo: bar
 `,
 		},
-		"yaml: invalid 'shell' value": {
+		"invalid 'shell' value": {
 			yaml: `
 shell:
   foo: bar
 `,
 		},
-		"yaml: invalid 'run' value": {
+		"invalid 'run' value": {
 			yaml: `
 run: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'with' value": {
+		"invalid 'with' value": {
 			yaml: `
 with: not a map
 `,
 		},
-		"yaml: invalid 'env' value": {
+		"invalid 'env' value": {
 			yaml: `
 env: not a map
 `,
@@ -215,37 +202,10 @@ env: not a map
 
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
-			var err error
-			switch {
-			case strings.HasPrefix(name, "model:"):
-				_, err = yaml.Marshal(tt.model)
-			case strings.HasPrefix(name, "yaml:"):
-				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
-			default:
-				t.Fatalf("Incorrect test name %q", name)
-			}
-
-			if err == nil {
+			if err := yaml.Unmarshal([]byte(tt.yaml), &tt.model); err == nil {
 				t.Error("Want an error, got none")
 			}
 		})
-	}
-
-	roundtrip := func(s Step) bool {
-		b, err := yaml.Marshal(s)
-		if err != nil {
-			return true
-		}
-
-		if err = yaml.Unmarshal(b, &s); err != nil {
-			return false
-		}
-
-		return true
-	}
-
-	if err := quick.Check(roundtrip, nil); err != nil {
-		t.Error(err)
 	}
 }
 
@@ -326,18 +286,7 @@ func TestUses(t *testing.T) {
 	}
 
 	for name, tt := range okCases {
-		t.Run("Marshal: "+name, func(t *testing.T) {
-			got, err := yaml.Marshal(tt.model)
-			if err != nil {
-				t.Fatalf("Want no error, got %#v", err)
-			}
-
-			if got, want := string(got), tt.yaml+"\n"; got != want {
-				t.Errorf("Unexpected result (got %q, want %q)", got, want)
-			}
-		})
-
-		t.Run("Unmarshal: "+name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			var got Uses
 			if err := yaml.Unmarshal([]byte(tt.yaml), &got); err != nil {
 				t.Fatalf("Want no error, got %#v", err)
@@ -349,53 +298,20 @@ func TestUses(t *testing.T) {
 	}
 
 	errCases := map[string]TestCase{
-		"model: missing name": {
-			model: Uses{
-				Ref: "bar",
-			},
-		},
-		"yaml: missing name": {
+		"missing name": {
 			yaml: `@bar`,
 		},
-		"yaml: empty ref": {
+		"empty ref": {
 			yaml: `foo@`,
 		},
 	}
 
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
-			var err error
-			switch {
-			case strings.HasPrefix(name, "model:"):
-				_, err = yaml.Marshal(tt.model)
-			case strings.HasPrefix(name, "yaml:"):
-				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
-			default:
-				t.Fatalf("Incorrect test name %q", name)
-			}
-
-			if err == nil {
+			if err := yaml.Unmarshal([]byte(tt.yaml), &tt.model); err == nil {
 				t.Error("Want an error, got none")
 			}
 		})
-	}
-
-	roundtrip := func(u Uses) bool {
-		b, err := yaml.Marshal(u)
-		if err != nil {
-			return true
-		}
-
-		var got Uses
-		if err = yaml.Unmarshal(b, &got); err != nil {
-			return false
-		}
-
-		return true
-	}
-
-	if err := quick.Check(roundtrip, nil); err != nil {
-		t.Error(err)
 	}
 }
 

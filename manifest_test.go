@@ -4,9 +4,7 @@ package gha
 
 import (
 	"fmt"
-	"strings"
 	"testing"
-	"testing/quick"
 
 	"gopkg.in/yaml.v3"
 )
@@ -250,18 +248,7 @@ runs:
 	}
 
 	for name, tt := range okCases {
-		t.Run("Marshal: "+name, func(t *testing.T) {
-			got, err := yaml.Marshal(tt.model)
-			if err != nil {
-				t.Fatalf("Want no error, got %#v", err)
-			}
-
-			if got, want := string(got), strings.TrimSpace(tt.yaml)+"\n"; got != want {
-				t.Errorf("Unexpected result\n=== got ===\n%s\n=== want ===\n%s", got, want)
-			}
-		})
-
-		t.Run("Unmarshal: "+name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			got, err := ParseManifest([]byte(tt.yaml))
 			if err != nil {
 				t.Fatalf("Want no error, got %#v", err)
@@ -273,179 +260,179 @@ runs:
 	}
 
 	errCases := map[string]TestCase{
-		"yaml: invalid 'name' value": {
+		"invalid 'name' value": {
 			yaml: `
 name: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'author' value": {
+		"invalid 'author' value": {
 			yaml: `
 author: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'description' value": {
+		"invalid 'description' value": {
 			yaml: `
 description: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'branding' value": {
+		"invalid 'branding' value": {
 			yaml: `
 branding: 3.14
 `,
 		},
-		"yaml: invalid 'color' value for branding": {
+		"invalid 'color' value for branding": {
 			yaml: `
 branding:
   color: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'icon' value for branding": {
+		"invalid 'icon' value for branding": {
 			yaml: `
 branding:
   icon: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'inputs' value": {
+		"invalid 'inputs' value": {
 			yaml: `
 inputs: 3.14
 `,
 		},
-		"yaml: invalid 'default' value for input": {
+		"invalid 'default' value for input": {
 			yaml: `
 inputs:
   foo:
     default: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'deprecationMessage' value for input": {
+		"invalid 'deprecationMessage' value for input": {
 			yaml: `
 inputs:
   foo:
     deprecationMessage: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'description' value for input": {
+		"invalid 'description' value for input": {
 			yaml: `
 inputs:
   foo:
     description: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'required' value for input": {
+		"invalid 'required' value for input": {
 			yaml: `
 inputs:
   foo:
     required: bar
 `,
 		},
-		"yaml: invalid 'outputs' value": {
+		"invalid 'outputs' value": {
 			yaml: `
 outputs: 3.14
 `,
 		},
-		"yaml: invalid 'description' value for output": {
+		"invalid 'description' value for output": {
 			yaml: `
 outputs:
   foo:
     description: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'value' value for output": {
+		"invalid 'value' value for output": {
 			yaml: `
 outputs:
   foo:
     value: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'runs' value": {
+		"invalid 'runs' value": {
 			yaml: `
 runs: 3.14
 `,
 		},
-		"yaml: invalid 'using' value in runs": {
+		"invalid 'using' value in runs": {
 			yaml: `
 runs:
   using: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'steps' value in runs": {
+		"invalid 'steps' value in runs": {
 			yaml: `
 runs:
   using: composite
   steps: 3.14
 `,
 		},
-		"yaml: invalid 'image' value in runs": {
+		"invalid 'image' value in runs": {
 			yaml: `
 runs:
   using: docker
   image: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'args' value in runs": {
+		"invalid 'args' value in runs": {
 			yaml: `
 runs:
   using: docker
   args: foobar
 `,
 		},
-		"yaml: invalid 'env' value in runs": {
+		"invalid 'env' value in runs": {
 			yaml: `
 runs:
   using: docker
   env: foobar
 `,
 		},
-		"yaml: invalid 'pre-entrypoint' value in runs": {
+		"invalid 'pre-entrypoint' value in runs": {
 			yaml: `
 runs:
   using: docker
   pre-entrypoint: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'entrypoint' value in runs": {
+		"invalid 'entrypoint' value in runs": {
 			yaml: `
 runs:
   using: docker
   entrypoint: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'post-entrypoint' value in runs": {
+		"invalid 'post-entrypoint' value in runs": {
 			yaml: `
 runs:
   using: docker
   post-entrypoint: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'pre' value in runs": {
+		"invalid 'pre' value in runs": {
 			yaml: `
 runs:
   using: node
   pre: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'pre-if' value in runs": {
+		"invalid 'pre-if' value in runs": {
 			yaml: `
 runs:
   using: node
   pre-if: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'main' value in runs": {
+		"invalid 'main' value in runs": {
 			yaml: `
 runs:
   using: node
   main: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'post' value in runs": {
+		"invalid 'post' value in runs": {
 			yaml: `
 runs:
   using: node
   post: ['foo', 'bar']
 `,
 		},
-		"yaml: invalid 'post-if' value in runs": {
+		"invalid 'post-if' value in runs": {
 			yaml: `
 runs:
   using: node
@@ -456,37 +443,10 @@ runs:
 
 	for name, tt := range errCases {
 		t.Run(name, func(t *testing.T) {
-			var err error
-			switch {
-			case strings.HasPrefix(name, "model:"):
-				_, err = yaml.Marshal(tt.model)
-			case strings.HasPrefix(name, "yaml:"):
-				err = yaml.Unmarshal([]byte(tt.yaml), &tt.model)
-			default:
-				t.Fatalf("Incorrect test name %q", name)
-			}
-
-			if err == nil {
+			if err := yaml.Unmarshal([]byte(tt.yaml), &tt.model); err == nil {
 				t.Error("Want an error, got none")
 			}
 		})
-	}
-
-	roundtrip := func(m Manifest) bool {
-		b, err := yaml.Marshal(m)
-		if err != nil {
-			return true
-		}
-
-		if err := yaml.Unmarshal(b, &m); err != nil {
-			return false
-		}
-
-		return true
-	}
-
-	if err := quick.Check(roundtrip, nil); err != nil {
-		t.Error(err)
 	}
 }
 

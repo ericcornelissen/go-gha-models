@@ -3,10 +3,8 @@
 package gha
 
 import (
-	"errors"
 	"fmt"
 	"strings"
-	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -62,33 +60,4 @@ func (u *Uses) UnmarshalYAML(n *yaml.Node) error {
 	u.Annotation = strings.TrimLeft(n.LineComment, "# ")
 
 	return nil
-}
-
-func (u Uses) MarshalYAML() (any, error) {
-	if u.Name == "" && u.Ref == "" {
-		return "", nil
-	}
-
-	if u.Name == "" && u.Ref != "" {
-		return nil, errors.New("missing 'name' value")
-	}
-
-	n := &yaml.Node{
-		Kind:  yaml.ScalarNode,
-		Tag:   "!!str",
-		Value: u.Name,
-		LineComment: strings.Map(func(r rune) rune {
-			if !unicode.IsPrint(r) {
-				return -1
-			}
-
-			return r
-		}, u.Annotation),
-	}
-
-	if u.Ref != "" {
-		n.Value = n.Value + "@" + u.Ref
-	}
-
-	return n, nil
 }
