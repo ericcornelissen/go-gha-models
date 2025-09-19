@@ -5,7 +5,7 @@ package gha
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Manifest is a model of a GitHub Actions Action manifest.
