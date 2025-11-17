@@ -36,6 +36,12 @@ type Uses struct {
 	Annotation string
 }
 
+// IsLocal reperts whether the uses value is for a local or remote Action.
+func (u *Uses) IsLocal() bool {
+	name := u.Name
+	return len(name) > 0 && name[0] == '.'
+}
+
 func (u *Uses) UnmarshalYAML(n *yaml.Node) error {
 	if n.Kind != yaml.ScalarNode {
 		return fmt.Errorf("cannot unmarshal %s into a gha.Uses struct", n.Tag)
