@@ -3,7 +3,9 @@
 package gha
 
 import (
+	"strings"
 	"testing"
+	"testing/quick"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -312,6 +314,64 @@ func TestUses(t *testing.T) {
 				t.Error("Want an error, got none")
 			}
 		})
+	}
+}
+
+func TestUsesIsLocal(t *testing.T) {
+	localCases := map[string]Uses{
+		"Local action, in the .github directory": {
+			Name: "./.github/actions/ghasum",
+		},
+		"Local action, in a random directory": {
+			Name: "./random",
+		},
+		"Local action, root": {
+			Name: ".",
+		},
+	}
+
+	for name, tt := range localCases {
+		t.Run(name, func(t *testing.T) {
+			if got, want := tt.IsLocal(), true; got != want {
+				t.Errorf("unexpected result (got %t, want %t)", got, want)
+			}
+		})
+	}
+
+	remoteCases := map[string]Uses{
+		"Remote action, tag ref": {
+			Name: "actions/checkout",
+			Ref:  "v5.0.1",
+		},
+		"Remote action, commit sha ref": {
+			Name:       "actions/checkout",
+			Ref:        "93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+			Annotation: "v5.0.1",
+		},
+		"Missing name (edge case)": {
+			Name: "",
+		},
+	}
+
+	for name, tt := range remoteCases {
+		t.Run(name, func(t *testing.T) {
+			if got, want := tt.IsLocal(), false; got != want {
+				t.Errorf("unexpected result (got %t, want %t)", got, want)
+			}
+		})
+	}
+
+	any := func(uses Uses) bool {
+		uses.Name = "." + uses.Name
+		local := uses.IsLocal()
+
+		uses.Name = strings.TrimLeft(uses.Name, ".")
+		remote := uses.IsLocal()
+
+		return local && !remote
+	}
+	if err := quick.Check(any, nil); err != nil {
+		t.Error(err)
 	}
 }
 
