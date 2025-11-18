@@ -36,10 +36,18 @@ type Uses struct {
 	Annotation string
 }
 
-// IsLocal reperts whether the uses value is for a local or remote Action.
+// IsLocal reports whether the uses value is for a local or remote Action.
 func (u *Uses) IsLocal() bool {
 	name := u.Name
 	return len(name) > 0 && name[0] == '.'
+}
+
+func (u *Uses) String() string {
+	if len(u.Ref) == 0 {
+		return u.Name
+	}
+
+	return u.Name + "@" + u.Ref
 }
 
 func (u *Uses) UnmarshalYAML(n *yaml.Node) error {

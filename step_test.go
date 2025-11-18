@@ -375,6 +375,64 @@ func TestUsesIsLocal(t *testing.T) {
 	}
 }
 
+func TestUsesString(t *testing.T) {
+	type TestCase struct {
+		uses Uses
+		want string
+	}
+
+	testCases := map[string]TestCase{
+		"Remote action, tag ref": {
+			uses: Uses{
+				Name: "actions/checkout",
+				Ref:  "v5.0.1",
+			},
+			want: "actions/checkout@v5.0.1",
+		},
+		"Remote action, commit sha ref": {
+			uses: Uses{
+				Name:       "actions/checkout",
+				Ref:        "93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+				Annotation: "v5.0.1",
+			},
+			want: "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+		},
+		"Remote action, in subdirectory": {
+			uses: Uses{
+				Name: "github/codeql-action/analyze",
+				Ref:  "main",
+			},
+			want: "github/codeql-action/analyze@main",
+		},
+		"Docker action": {
+			uses: Uses{
+				Name: "docker://alpine:3.8",
+			},
+			want: "docker://alpine:3.8",
+		},
+		"Local action": {
+			uses: Uses{
+				Name: ".",
+			},
+			want: ".",
+		},
+		"Local action, in subdirectory": {
+			uses: Uses{
+				Name: "./.github/actions/ghasum",
+			},
+			want: "./.github/actions/ghasum",
+		},
+	}
+
+	for name, tt := range testCases {
+		t.Run(name, func(t *testing.T) {
+			if got, want := tt.uses.String(), tt.want; got != want {
+				t.Errorf("unexpected result (got %s, want %s)", got, want)
+			}
+		})
+	}
+}
+
 func checkSteps(t *testing.T, got, want []Step) {
 	t.Helper()
 
