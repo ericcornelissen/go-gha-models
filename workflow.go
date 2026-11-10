@@ -7,7 +7,7 @@ import (
 	"maps"
 	"sort"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // Workflow is a model of a GitHub Actions workflow.
