@@ -20,7 +20,10 @@ jobs:
       with:
         go-version-file: go.mod
     - name: Index ${{ github.ref_name }}
-      run: go get "github.com/${REPOSITORY}@${VERSION}"
+      run: |
+        cd "$(mktemp -d)"
+        go mod init example.com/m
+        go get "github.com/${REPOSITORY}@${VERSION}"
       env:
         REPOSITORY: ${{ github.repository }}
         VERSION: ${{ github.ref_name }}
